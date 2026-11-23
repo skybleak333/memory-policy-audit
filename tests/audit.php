@@ -33,6 +33,39 @@ same([
     ],
 ], $report['context']);
 
+$historical = $audit->run(new Catalog($catalog), $recall, asOf: '2026-11-05', knownOn: '2026-11-05');
+same('2026-11-05', $historical['known_on']);
+same([
+    'memory_id' => 'current-policy',
+    'document_id' => 'annual-refunds-v3',
+    'status' => 'not_yet_published',
+    'published_on' => '2026-11-10',
+], $historical['decisions'][3]);
+same(['annual-refunds-v2'], array_column($historical['context'], 'document_id'));
+same(['annual-refunds-v1'], array_column($historical['context'], 'recovered_from'));
+
+$corrected = $audit->run(new Catalog($catalog), $staleRecall, asOf: '2026-11-05', knownOn: '2026-11-10');
+same(['annual-refunds-v3'], array_column($corrected['context'], 'document_id'));
+
+$scheduled = $audit->run(new Catalog($catalog), $staleRecall, asOf: '2026-12-01', knownOn: '2026-11-23');
+same(['annual-refunds-v4'], array_column($scheduled['context'], 'document_id'));
+same([], $audit->run(new Catalog($catalog), $recall, asOf: '2026-11-05', knownOn: '2026-08-01')['context']);
+
+$sameEffectiveDate = $catalog;
+$sameEffectiveDate['revisions'][2]['effective_on'] = '2026-10-01';
+$history = $audit->run(new Catalog($sameEffectiveDate), $staleRecall, asOf: '2026-10-15', knownOn: '2026-10-15');
+$correction = $audit->run(new Catalog($sameEffectiveDate), $staleRecall, asOf: '2026-10-15', knownOn: '2026-11-10');
+same(['annual-refunds-v2'], array_column($history['context'], 'document_id'));
+same(['annual-refunds-v3'], array_column($correction['context'], 'document_id'));
+
+$latePredecessor = $catalog;
+$latePredecessor['revisions'][1]['published_on'] = '2026-11-12';
+$blockedPath = $audit->run(new Catalog($latePredecessor), $staleRecall, asOf: '2026-11-05', knownOn: '2026-11-10');
+same('conflicting', $blockedPath['decisions'][0]['status']);
+same([], $blockedPath['context']);
+$visiblePath = $audit->run(new Catalog($latePredecessor), $staleRecall, asOf: '2026-11-05', knownOn: '2026-11-12');
+same(['annual-refunds-v3'], array_column($visiblePath['context'], 'document_id'));
+
 $report = $audit->run(new Catalog($catalog), $recall, '2026-09-30');
 same(['current', 'unverified', 'not_yet_effective', 'not_yet_effective'], array_column($report['decisions'], 'status'));
 same(['annual-refunds-v1'], array_column($report['context'], 'document_id'));

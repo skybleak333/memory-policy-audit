@@ -13,17 +13,20 @@ final class Audit
     {
     }
 
-    public function run(Catalog $catalog, array $recall, string $asOf): array
+    public function run(Catalog $catalog, array $recall, string $asOf, ?string $knownOn = null): array
     {
         Catalog::date($asOf);
+        if ($knownOn !== null) {
+            Catalog::date($knownOn);
+        }
         if (!is_array($recall['results'] ?? null) || !array_is_list($recall['results'])) {
             throw new InvalidArgumentException('The recall response must contain a results list.');
         }
 
-        $successors = $this->relate->successors($catalog, $asOf);
+        $successors = $this->relate->successors($catalog, $asOf, $knownOn);
         $tips = [];
         foreach ($catalog->revisions as $id => $revision) {
-            if ($revision['effective_on'] > $asOf) {
+            if ($revision['effective_on'] > $asOf || ($knownOn !== null && $revision['published_on'] > $knownOn)) {
                 continue;
             }
             if (!array_key_exists($id, $successors)) {
@@ -61,7 +64,10 @@ final class Audit
                 'status' => 'unverified',
             ];
 
-            if ($revision !== null) {
+            if ($revision !== null && $knownOn !== null && $revision['published_on'] > $knownOn) {
+                $decision['status'] = 'not_yet_published';
+                $decision['published_on'] = $revision['published_on'];
+            } elseif ($revision !== null) {
                 $policyTips = $tips[$revision['policy']] ?? [];
                 $decision += [
                     'policy' => $revision['policy'],
@@ -119,6 +125,11 @@ final class Audit
 
         ksort($context);
 
-        return ['as_of' => $asOf, 'decisions' => $decisions, 'context' => array_values($context)];
+        $report = ['as_of' => $asOf];
+        if ($knownOn !== null) {
+            $report['known_on'] = $knownOn;
+        }
+
+        return $report + ['decisions' => $decisions, 'context' => array_values($context)];
     }
 }

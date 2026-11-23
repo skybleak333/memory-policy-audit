@@ -1,17 +1,30 @@
-export function seed(db, queries, revisions) {
-    const params = { revisions: revisions.map(({ id, effective_on, supersedes = [] }) => ({ id, effective_on, supersedes })) };
-    execute(db, queries.nodes, params);
+function publicationDate(revision) {
+    return revision.published_on ?? revision.effective_on;
+}
+
+function isPublished(revision, knownOn) {
+    return knownOn === null || publicationDate(revision) <= knownOn;
+}
+
+export function seed(db, queries, revisions, knownOn = null) {
+    const params = { revisions: revisions.map(revision => ({
+        id: revision.id,
+        effective_on: revision.effective_on,
+        published_on: publicationDate(revision),
+        supersedes: revision.supersedes ?? [],
+    })) };
+    execute(db, queries.nodes, { ...params, known_on: knownOn });
     execute(db, queries.edges, params);
 }
 
-export function audit(db, statement, revisions, recall, date) {
+export function audit(db, statement, revisions, recall, date, knownOn = null) {
     const catalog = new Map(revisions.map(revision => [revision.id, revision]));
     const rows = execute(db, statement, { date });
     const successors = new Map(rows.map(row => [row.id, [...row.successors].sort()]));
     const tips = new Map();
 
     for (const revision of revisions) {
-        if (revision.effective_on > date) continue;
+        if (revision.effective_on > date || !isPublished(revision, knownOn)) continue;
         const newer = successors.get(revision.id);
         if (!newer) throw new Error('Relate did not return revision ' + revision.id);
         if (newer.length === 0) {
@@ -28,7 +41,10 @@ export function audit(db, statement, revisions, recall, date) {
     for (const [index, result] of recall.results.entries()) {
         const revision = catalog.get(result.document_id);
         const decision = { memory_id: result.id, document_id: result.document_id ?? null, status: 'unverified' };
-        if (revision) {
+        if (revision && !isPublished(revision, knownOn)) {
+            decision.status = 'not_yet_published';
+            decision.published_on = publicationDate(revision);
+        } else if (revision) {
             const policyTips = tips.get(revision.policy) ?? [];
             Object.assign(decision, {
                 policy: revision.policy,
@@ -70,7 +86,9 @@ export function audit(db, statement, revisions, recall, date) {
         currentDocuments.add(replacement.id);
     }
 
-    return { as_of: date, decisions, context: context.filter(Boolean) };
+    const report = { as_of: date };
+    if (knownOn !== null) report.known_on = knownOn;
+    return { ...report, decisions, context: context.filter(Boolean) };
 }
 
 function execute(db, statement, params) {

@@ -2,7 +2,7 @@
 
 Check the source of an agent's long-term memories before they reach the model. Hindsight retrieves relevant facts. Relate follows the revisions of their source documents and tells the agent which ones are in effect on the requested date.
 
-[Try the browser demo](https://skybleak333.github.io/memory-policy-audit/) and compare three dates. Turn on **Recall only the oldest policy** to see Relate recover the approved excerpt from the current revision. The demo runs the same Cypher as the PHP tool in WebAssembly.
+[Try the browser demo](https://skybleak333.github.io/memory-policy-audit/). Turn on **Recall only the oldest policy** to see Relate recover an approved excerpt from the version graph. The demo runs the same Cypher as the PHP tool in WebAssembly.
 
 In the demo, the highest-ranked memory says customers have 30 days to request a refund. The current policy says 14. The draft for next month says 7. The audit keeps the 14-day fact and cites the current document.
 
@@ -32,7 +32,7 @@ Use `--relate=/path/to/relate` if the binary is outside your PATH. In JSON mode,
 
 ## Audit your own recall
 
-Publish your approved policy revisions as a catalog in the shape of [examples/policies.json](examples/policies.json). Use the same revision ID as `document_id` when retaining the document in Hindsight. Each revision has a policy identifier, its effective date in `YYYY-MM-DD` form, an HTTP(S) citation and an optional list of the earlier revisions it supersedes.
+Publish your approved policy revisions as a catalog in the shape of [examples/policies.json](examples/policies.json). Use the same revision ID as `document_id` when retaining the document in Hindsight. Each revision has a policy identifier, its effective date in `YYYY-MM-DD` form, an HTTP(S) citation and an optional list of the earlier revisions it supersedes. Set `published_on` to the date the revision became available. Without this field, the audit uses its effective date as its publication date.
 
 ```sh
 php bin/memory-audit audit \
@@ -53,6 +53,17 @@ HINDSIGHT_URL=http://127.0.0.1:8888 php bin/memory-audit audit \
 
 Set `HINDSIGHT_API_KEY` when the server requires authentication. The live mode uses [hindsight-php](https://github.com/skybleak333/hindsight-php) to look up memories in the existing bank. The demo uses synthetic memory and policy data.
 
+## Replay a past decision
+
+[Open the November 5 example](https://skybleak333.github.io/memory-policy-audit/?as-of=2026-11-05&known-on=2026-11-05&recall=stale). The 14-day revision took effect on November 1 and was published on November 10. The agent would have found the 21-day rule in the catalog on November 5. Move **Published by** to November 10 to see the corrected 14-day answer for the same November 5 case.
+
+```sh
+php bin/memory-audit demo --as-of=2026-11-05 --known-on=2026-11-05
+php bin/memory-audit demo --as-of=2026-11-05 --known-on=2026-11-10
+```
+
+`--as-of` selects the date the rule needs to cover. `--known-on` limits the graph to revisions published by that day, inclusive. Omit `--known-on` to use all catalog revisions. A recalled source published after the cutoff is classified as `not_yet_published` and its content and citation are excluded from the agent context. The dates describe whole calendar days. Use a saved recall response to replay the inputs of a historical decision. With a live Hindsight bank, the publication cutoff applies to the catalog and the tool uses the bank's current retrieval results.
+
 ## Use the audit inside a Laravel AI agent
 
 Add both public Git repositories to your Laravel application's Composer configuration.
@@ -60,7 +71,7 @@ Add both public Git repositories to your Laravel application's Composer configur
 ```sh
 composer config repositories.memory-policy-audit git https://github.com/skybleak333/memory-policy-audit.git
 composer config repositories.hindsight-php git https://github.com/skybleak333/hindsight-php.git
-composer require fedoseev/memory-policy-audit:^0.3
+composer require fedoseev/memory-policy-audit:^0.5
 ```
 
 In an agent that implements `HasMiddleware`, give Hindsight's memory middleware an audit formatter. Use application-owned policy data and a bank populated with those documents.
@@ -85,7 +96,7 @@ public function middleware(): array
 }
 ```
 
-The formatter uses today's UTC date unless you give it an `asOf` date. It adds citations for accepted facts before the first model call. If all recalled sources are excluded, the agent receives no memory block. An audit error propagates to the caller.
+The formatter uses today's UTC date unless you give it an `asOf` date. Give it `knownOn` to apply a publication cutoff. It adds citations for accepted facts before the first model call. If all recalled sources are excluded, the agent receives no memory block. An audit error propagates to the caller.
 
 ## Look up policies from an MCP client
 
@@ -113,13 +124,13 @@ Call `lookup_refund_policy` with `{"as_of": "2026-11-23"}`. Relate finds the 14-
 
 For live lookup, remove `--demo` and set `POLICY_CATALOG` to the absolute path of your approved catalog, `HINDSIGHT_URL` to your Hindsight endpoint, and `HINDSIGHT_BANK` to the policy bank. Set `HINDSIGHT_API_KEY` in the server environment if authentication is required. Every catalog revision needs an approved `excerpt`. Restart the server after updating the catalog.
 
-The live tool is `lookup_policy`. It takes a `question` and an optional `as_of` date, which defaults to today in UTC. Both tools provide a structured report containing approved text and canonical citations in `context` and explanations in `decisions`. Clients that use text results get the same report as JSON. The server only exposes the configured bank and does not retain conversations.
+The live tool is `lookup_policy`. It takes a `question` and an optional `as_of` date, which defaults to today in UTC. Both tools accept an optional `known_on` publication cutoff and return approved text and canonical citations in `context` and explanations in `decisions`. Clients that use text results get the same report as JSON. The server reads the configured bank.
 
 ## Call the example from another agent website
 
 [Policy assistant](https://skybleak333.github.io/memory-policy-audit/agents/) publishes a two-agent [Open Agentic Web network](https://github.com/cognizant-ai-labs/agentic-web). In AI model settings, choose a provider that supports tool calls. Ask which refund window applied on 2026-11-23. The specialist calls the Relate graph and returns the approved excerpt and citation.
 
-Add `https://skybleak333.github.io/memory-policy-audit/agents/policy_audit` to the caller's tools and allow `https://skybleak333.github.io` in its peer policy. After visitor consent, the caller's browser loads the network and invokes the public read action through the action bridge. The action takes only a date and reads the same synthetic catalog as the graph demo. Inference uses the caller's configured provider.
+Add `https://skybleak333.github.io/memory-policy-audit/agents/policy_audit` to the caller's tools and allow `https://skybleak333.github.io` in its peer policy. After visitor consent, the caller's browser loads the network and invokes the public read action through the action bridge. The action takes an effective date and optional publication cutoff and reads the same synthetic catalog as the graph demo. Inference uses the caller's configured provider.
 
 Run the interoperability check with local Chrome. It simulates model replies and checks the real browser runtime, action bridge and Relate WebAssembly. It verifies that declining consent sends no request to the policy site, and that accepting returns the current excerpt from the old recall fixture.
 
@@ -133,7 +144,7 @@ Pass the public network URL after `--` to test the deployed site. Use `CHROME_BI
 
 ## How the audit decides
 
-Relate builds a local graph of revisions and walks incoming `SUPERSEDES` relationships. A revision is current when it has taken effect and is the only remaining version of its policy at that date. When two branches remain in effect, the audit marks both as conflicting until a later revision supersedes them. Memories from documents missing from the catalog are unverified.
+Relate builds a local graph of the published revisions and walks incoming `SUPERSEDES` relationships. A revision can replace one with an earlier effective date, or one with the same effective date and an earlier publication date. A revision is current when it has taken effect and is the only remaining version of its policy in the graph. The graph excludes edges that depend on a revision published after the cutoff. When two visible branches remain in effect, the audit marks them as conflicting until a visible revision supersedes both. Memories from documents missing from the catalog are unverified.
 
 Set `excerpt` on a revision to supply its approved wording. When recall finds only a superseded revision, the audit checks for a single current version of that policy and follows the graph to it. It adds the approved excerpt and records the older revision in `recovered_from`. When recall already found the current revision, the excerpt takes precedence over the recalled wording and appears once in context. For revisions without an excerpt, the audit continues to accept recalled text from current sources.
 

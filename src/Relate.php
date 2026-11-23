@@ -13,7 +13,7 @@ final class Relate
     }
 
     /** @return array<string, list<string>> Revision ID => effective revisions reachable through incoming SUPERSEDES edges. */
-    public function successors(Catalog $catalog, string $asOf): array
+    public function successors(Catalog $catalog, string $asOf, ?string $knownOn = null): array
     {
         if ($catalog->revisions === []) {
             return [];
@@ -31,6 +31,7 @@ final class Relate
             $revisions = array_map(static fn (array $revision): array => [
                 'id' => $revision['id'],
                 'effective_on' => $revision['effective_on'],
+                'published_on' => $revision['published_on'],
                 'supersedes' => $revision['supersedes'],
             ], array_values($catalog->revisions));
 
@@ -39,7 +40,9 @@ final class Relate
             }
 
             $parametersOption = ['--fetch-params', "revisions={$parameters}"];
-            $this->query($database, 'create-revisions', $parametersOption);
+            $this->query($database, 'create-revisions', [
+                ...$parametersOption, '--param', 'known_on='.json_encode($knownOn, JSON_THROW_ON_ERROR),
+            ]);
             $this->query($database, 'create-edges', $parametersOption);
 
             // The leading endpoint is already bound. Keep it on the left of the variable-length pattern.

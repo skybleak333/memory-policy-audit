@@ -13,6 +13,7 @@ final class RecallContext
         private readonly Catalog $catalog,
         private readonly Audit $audit,
         private readonly ?string $asOf = null,
+        private readonly ?string $knownOn = null,
     ) {
     }
 
@@ -27,7 +28,12 @@ final class RecallContext
             'document_id' => $fact->documentId,
             'text' => $fact->text,
         ], $response->results);
-        $context = $this->audit->run($this->catalog, ['results' => $results], $this->asOf ?? gmdate('Y-m-d'))['context'];
+        $context = $this->audit->run(
+            $this->catalog,
+            ['results' => $results],
+            $this->asOf ?? gmdate('Y-m-d'),
+            $this->knownOn,
+        )['context'];
 
         if ($context === []) {
             return null;

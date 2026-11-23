@@ -11,7 +11,8 @@ const browserBinary = process.env.CHROME_BIN ?? (process.platform === 'darwin'
     : '/usr/bin/google-chrome');
 const testKey = 'test-credential-never-send-to-policy-site';
 const privateField = 'support-note-for-caller-only';
-const question = 'What was the refund window on 2026-11-23?';
+const question = 'What was the refund window on 2026-11-05 using policies published by 2026-11-05?';
+const historicalDates = { as_of: '2026-11-05', known_on: '2026-11-05' };
 const mediaTypes = {
     '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json',
     '.mjs': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm',
@@ -103,7 +104,7 @@ try {
                 ?? names.find(name => name.includes('policy_audit'));
             assert.ok(name, 'The runtime did not offer the expected tool. It offered ' + names.join(', '));
             assert.ok(!request.postData().includes(privateField));
-            const args = name === 'website_lookup_refund_policy' ? { as_of: '2026-11-23' } : { request: question };
+            const args = name === 'website_lookup_refund_policy' ? historicalDates : { request: question };
             delta = { tool_calls: [{
                 index: 0, id: 'policy-tool-call', type: 'function',
                 function: { name, arguments: JSON.stringify(args) },
@@ -140,14 +141,14 @@ try {
     const approved = await run('allow');
     assert.equal(approved.consents.length, 1);
     assert.equal(approved.consents[0].peerOrigin, target.host);
-    assert.match(approved.text, /14-day refund window/);
-    assert.match(approved.text, /https:\/\/policies\.example\/refunds\/annual\/v3/);
+    assert.match(approved.text, /21-day refund window/);
+    assert.match(approved.text, /https:\/\/policies\.example\/refunds\/annual\/v2/);
     const expected = {
-        as_of: '2026-11-23',
+        ...historicalDates,
         context: [{
-            text: 'Annual plans have a 14-day refund window.',
-            citation: 'https://policies.example/refunds/annual/v3',
-            document_id: 'annual-refunds-v3',
+            text: 'Annual plans have a 21-day refund window.',
+            citation: 'https://policies.example/refunds/annual/v2',
+            document_id: 'annual-refunds-v2',
             recovered_from: 'annual-refunds-v1',
         }],
     };
@@ -163,18 +164,29 @@ try {
     const assistantUrl = new URL('./', target);
     await page.goto(assistantUrl.href);
     await page.waitForFunction(() => Boolean(window.__nsweb?.engine?.top));
-    const local = await page.evaluate(async () => {
+    const local = await page.evaluate(async dates => {
         const engine = window.__nsweb.engine;
         const scope = { base: engine.top.base, network: engine.top.network.name };
         const action = engine.actions.catalog(scope).find(action => action.name === 'lookup_refund_policy');
         if (!action || action.effect !== 'read' || action.availability !== 'local-only') throw new Error('Local read tool is unavailable.');
-        const plan = engine.actions.prepare({ kind: 'action', action: action.ref, arguments: { as_of: '2026-11-23' } });
+        const plan = engine.actions.prepare({ kind: 'action', action: action.ref, arguments: dates });
         const [receipt] = await engine.actions.execute(plan, () => true, 'local-policy-test');
         return receipt;
-    });
+    }, historicalDates);
     assert.equal(local.status, 'succeeded', local.error);
     assert.deepEqual(local.result, expected);
     console.log('The assistant page returns the same approved policy from Relate.');
+
+    const graphUrl = new URL('../', target);
+    graphUrl.search = new URLSearchParams({ 'as-of': '2026-11-05', 'known-on': '2026-11-05', recall: 'stale' });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(graphUrl.href);
+    await page.waitForFunction(() => document.querySelector('#citation').textContent.endsWith('/v2'));
+    await page.getByLabel('Published by').fill('2026-11-10');
+    await page.waitForFunction(() => document.querySelector('#citation').textContent.endsWith('/v3'));
+    assert.equal(await page.locator('input[name="as-of"]:checked').inputValue(), '2026-11-05');
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390);
+    console.log('The graph demo switches from v2 to v3 when only the publication cutoff changes.');
 } finally {
     await browser?.close();
     for (const instance of [policy, caller]) instance?.server.close();

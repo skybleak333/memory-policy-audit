@@ -8,7 +8,7 @@ use InvalidArgumentException;
 
 final class Catalog
 {
-    /** @var array<string, array{id: string, policy: string, effective_on: string, citation: string, supersedes: list<string>, excerpt: ?string}> */
+    /** @var array<string, array{id: string, policy: string, effective_on: string, published_on: string, citation: string, supersedes: list<string>, excerpt: ?string}> */
     public readonly array $revisions;
 
     public function __construct(array $data)
@@ -43,10 +43,12 @@ final class Catalog
                 }
             }
 
+            $effectiveOn = self::date(self::requiredString($record, 'effective_on'));
             $revisions[$id] = [
                 'id' => $id,
                 'policy' => self::requiredString($record, 'policy'),
-                'effective_on' => self::date(self::requiredString($record, 'effective_on')),
+                'effective_on' => $effectiveOn,
+                'published_on' => isset($record['published_on']) ? self::date(self::requiredString($record, 'published_on')) : $effectiveOn,
                 'citation' => $citation,
                 'supersedes' => array_values(array_unique($predecessors, SORT_STRING)),
                 'excerpt' => isset($record['excerpt']) ? self::requiredString($record, 'excerpt') : null,
@@ -56,7 +58,9 @@ final class Catalog
         foreach ($revisions as $revision) {
             foreach ($revision['supersedes'] as $predecessorId) {
                 $predecessor = $revisions[$predecessorId] ?? null;
-                if ($predecessor === null || $predecessor['policy'] !== $revision['policy'] || $predecessor['effective_on'] >= $revision['effective_on']) {
+                if ($predecessor === null || $predecessor['policy'] !== $revision['policy']
+                    || $predecessor['effective_on'] > $revision['effective_on']
+                    || ($predecessor['effective_on'] === $revision['effective_on'] && $predecessor['published_on'] >= $revision['published_on'])) {
                     throw new InvalidArgumentException("Revision {$revision['id']} must supersede an earlier revision of the same policy.");
                 }
             }

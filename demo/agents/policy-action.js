@@ -1,14 +1,17 @@
 export function registerActions(actions, { bridge = false } = {}) {
     actions.register({
         name: 'lookup_refund_policy',
-        description: 'Find the approved example annual refund policy and its citation on an effective date.',
+        description: 'Find the approved example annual refund policy on an effective date, with an optional publication cutoff.',
         effect: 'read',
         availability: bridge ? 'bridge' : 'local-only',
         // This action reads only the synthetic catalog already published by the demo.
         callerOrigins: bridge ? ['*'] : [],
         inputSchema: {
             type: 'object',
-            properties: { as_of: { type: 'string', format: 'date' } },
+            properties: {
+                as_of: { type: 'string', format: 'date' },
+                known_on: { type: 'string', format: 'date', description: 'Only consider policies published by this date.' },
+            },
             required: ['as_of'],
             additionalProperties: false,
         },
@@ -16,6 +19,7 @@ export function registerActions(actions, { bridge = false } = {}) {
             type: 'object',
             properties: {
                 as_of: { type: 'string', format: 'date' },
+                known_on: { type: 'string', format: 'date' },
                 context: {
                     type: 'array',
                     items: {
@@ -34,11 +38,11 @@ export function registerActions(actions, { bridge = false } = {}) {
             required: ['as_of', 'context'],
             additionalProperties: false,
         },
-        execute: ({ as_of }) => resolvePolicy(as_of),
+        execute: ({ as_of, known_on }) => resolvePolicy(as_of, known_on),
     });
 }
 
-async function resolvePolicy(date) {
+async function resolvePolicy(date, knownOn) {
     const worker = new Worker(new URL('../worker.js', import.meta.url), { type: 'module' });
     let timeout;
     try {
@@ -50,10 +54,10 @@ async function resolvePolicy(date) {
                     reject(new Error('The policy graph could not resolve the requested date.'));
                     return;
                 }
-                const { as_of, context } = data.report;
-                resolve({ as_of, context });
+                const { as_of, known_on, context } = data.report;
+                resolve(known_on === undefined ? { as_of, context } : { as_of, known_on, context });
             }, { once: true });
-            worker.postMessage({ date, staleOnly: true, request: 1 });
+            worker.postMessage({ date, knownOn, staleOnly: true, request: 1 });
         });
     } finally {
         clearTimeout(timeout);

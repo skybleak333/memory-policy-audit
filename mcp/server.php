@@ -29,16 +29,19 @@ function readJson(string $path): array
 }
 
 /** @param Closure(string): array $recall */
-function lookup(Audit $audit, Catalog $catalog, string $asOf, Closure $recall): CallToolResult
+function lookup(Audit $audit, Catalog $catalog, string $asOf, ?string $knownOn, Closure $recall): CallToolResult
 {
     try {
         Catalog::date($asOf);
+        if ($knownOn !== null) {
+            Catalog::date($knownOn);
+        }
     } catch (InvalidArgumentException) {
         return CallToolResult::error([new TextContent('Provide a valid calendar date in YYYY-MM-DD format.')]);
     }
 
     try {
-        $report = $audit->run($catalog, $recall($asOf), $asOf);
+        $report = $audit->run($catalog, $recall($asOf), $asOf, $knownOn);
 
         return new CallToolResult(
             [new TextContent(json_encode($report, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE))],
@@ -72,6 +75,10 @@ try {
                 'type' => 'string',
                 'description' => 'Effective date in YYYY-MM-DD. Defaults to '.($demo ? '2026-11-23.' : 'today in UTC.'),
             ],
+            'known_on' => [
+                'type' => 'string',
+                'description' => 'Optional publication cutoff in YYYY-MM-DD. Uses the whole catalog when omitted.',
+            ],
         ],
         'additionalProperties' => false,
     ];
@@ -79,10 +86,11 @@ try {
     if ($demo) {
         $catalog = new Catalog(readJson($examples.'/policies.json'));
         $recall = readJson($examples.'/stale-recall.json');
-        $handler = static fn (string $as_of = '2026-11-23'): CallToolResult => lookup(
+        $handler = static fn (string $as_of = '2026-11-23', ?string $known_on = null): CallToolResult => lookup(
             $audit,
             $catalog,
             $as_of,
+            $known_on,
             static fn (string $date): array => $recall,
         );
         $name = 'lookup_refund_policy';
@@ -108,10 +116,11 @@ try {
             'description' => 'Question about the policies in the configured Hindsight bank.',
         ];
         $schema['required'] = ['question'];
-        $handler = static fn (string $question, ?string $as_of = null): CallToolResult => lookup(
+        $handler = static fn (string $question, ?string $as_of = null, ?string $known_on = null): CallToolResult => lookup(
             $audit,
             $catalog,
             $as_of ?? gmdate('Y-m-d'),
+            $known_on,
             static fn (string $date): array => $hindsight->recall($bank, $question, queryTimestamp: $date.'T23:59:59Z')->raw,
         );
         $name = 'lookup_policy';
@@ -119,7 +128,7 @@ try {
     }
 
     $server = Server::builder()
-        ->setServerInfo('Memory Policy Audit', '0.4.0')
+        ->setServerInfo('Memory Policy Audit', '0.5.0')
         ->addTool(
             $handler,
             $name,

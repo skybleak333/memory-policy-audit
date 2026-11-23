@@ -29,7 +29,14 @@ final class PromptIntegrationTest extends TestCase
     }
 
     #[DataProvider('recallScenarios')]
-    public function test_the_agent_receives_only_the_current_fact_with_its_source(bool $live, bool $staleOnly): void
+    public function test_the_agent_receives_only_the_current_fact_with_its_source(
+        bool $live,
+        bool $staleOnly,
+        string $asOf = '2026-11-23',
+        ?string $knownOn = null,
+        int $days = 14,
+        string $revision = 'v3',
+    ): void
     {
         $client = $live ? (new Hindsight(PolicyScenario::url()))->withTimeout(60) : new HindsightFake;
         $bank = 'memory-policy-laravel-'.bin2hex(random_bytes(8));
@@ -40,26 +47,31 @@ final class PromptIntegrationTest extends TestCase
             $recallContext = new RecallContext(
                 new Catalog($catalog),
                 new Audit(new Relate(getenv('RELATE_BIN') ?: 'relate')),
-                asOf: '2026-11-23',
+                asOf: $asOf,
+                knownOn: $knownOn,
             );
 
-            PolicySupportAgent::fake(['Your annual plan has a 14-day refund window.']);
+            PolicySupportAgent::fake(["Your annual plan has a {$days}-day refund window."]);
             $agent = new PolicySupportAgent([
                 Memory::bank($bank)->using($client)->withoutRetain()->throwOnError()->formatRecallUsing($recallContext(...)),
-                function (PendingStep $step, Closure $next) {
+                function (PendingStep $step, Closure $next) use ($days, $revision) {
                     $instructions = $step->instructions ?? '';
-                    $this->assertStringContainsString('Annual plans have a 14-day refund window.', $instructions);
-                    $this->assertStringContainsString('https://policies.example/refunds/annual/v3', $instructions);
+                    $this->assertStringContainsString("Annual plans have a {$days}-day refund window.", $instructions);
+                    $this->assertStringContainsString("https://policies.example/refunds/annual/{$revision}", $instructions);
                     $this->assertStringNotContainsString('30-day', $instructions);
                     $this->assertStringNotContainsString('7-day', $instructions);
                     $this->assertStringNotContainsString('no refund deadline', $instructions);
+                    if ($revision === 'v2') {
+                        $this->assertStringNotContainsString('14-day', $instructions);
+                        $this->assertStringNotContainsString('https://policies.example/refunds/annual/v3', $instructions);
+                    }
 
                     return $next($step);
                 },
             ]);
 
             $response = $agent->prompt('What is the refund deadline for annual plans?');
-            $this->assertSame('Your annual plan has a 14-day refund window.', $response->text);
+            $this->assertSame("Your annual plan has a {$days}-day refund window.", $response->text);
         } finally {
             try {
                 $client->deleteBank($bank);
@@ -76,6 +88,8 @@ final class PromptIntegrationTest extends TestCase
             'in-memory Hindsight with only stale recall' => [false, true],
             'live Hindsight with current recall' => [true, false],
             'live Hindsight with only stale recall' => [true, true],
+            'replay before the correction was published' => [false, false, '2026-11-05', '2026-11-05', 21, 'v2'],
+            'replay after the correction was published' => [false, true, '2026-11-05', '2026-11-10', 14, 'v3'],
         ];
     }
 }

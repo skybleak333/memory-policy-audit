@@ -19,6 +19,7 @@
             "id": "annual-refunds-v3",
             "policy": "annual-refunds",
             "effective_on": "2026-11-01",
+            "published_on": "2026-11-10",
             "citation": "https://policies.example/refunds/annual/v3",
             "excerpt": "Annual plans have a 14-day refund window.",
             "supersedes": ["annual-refunds-v2"]
@@ -27,6 +28,7 @@
             "id": "annual-refunds-v4",
             "policy": "annual-refunds",
             "effective_on": "2026-12-01",
+            "published_on": "2026-11-15",
             "citation": "https://policies.example/refunds/annual/v4",
             "excerpt": "Annual plans have a 7-day refund window.",
             "supersedes": ["annual-refunds-v3"]

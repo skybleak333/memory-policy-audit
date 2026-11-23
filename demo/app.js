@@ -1,6 +1,7 @@
 const status = document.querySelector('#status');
 const report = document.querySelector('#report');
 const dates = document.querySelectorAll('input[name="as-of"]');
+const knownOn = document.querySelector('#known-on');
 const staleOnly = document.querySelector('#stale-only');
 const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 let request = 0;
@@ -10,6 +11,7 @@ const labels = {
     superseded: 'Superseded',
     unverified: 'Unverified',
     not_yet_effective: 'Future policy',
+    not_yet_published: 'Published later',
     conflicting: 'Conflicting',
 };
 
@@ -20,7 +22,7 @@ function show() {
     status.classList.remove('error');
     status.textContent = 'Checking the version graph…';
     report.setAttribute('aria-busy', 'true');
-    worker.postMessage({ date, staleOnly: staleOnly.checked, request: ++request });
+    worker.postMessage({ date, knownOn: knownOn.value || null, staleOnly: staleOnly.checked, request: ++request });
 }
 
 function element(tag, text, className = '') {
@@ -41,6 +43,8 @@ function reason(decision) {
             return 'Replaced by ' + decision.superseded_by.join(', ') + '.';
         case 'not_yet_effective':
             return 'Takes effect ' + formatDate.format(new Date(decision.effective_on)) + '.';
+        case 'not_yet_published':
+            return 'Published ' + formatDate.format(new Date(decision.published_on)) + ', after the selected cutoff.';
         case 'conflicting':
             return 'Current sources disagree: ' + decision.current_revisions.join(', ') + '.';
         default:
@@ -63,6 +67,9 @@ function display(data, catalog, recall, query) {
         const date = element('time', formatDate.format(new Date(revision.effective_on)));
         date.dateTime = revision.effective_on;
         item.append(date);
+        if (revision.published_on && revision.published_on !== revision.effective_on) {
+            item.append(element('small', 'Published ' + formatDate.format(new Date(revision.published_on)), 'publication-date'));
+        }
         return item;
     }));
 
@@ -105,6 +112,12 @@ worker.addEventListener('message', ({ data }) => {
 
 worker.addEventListener('error', () => fail('The Relate worker could not load.'));
 for (const date of dates) date.addEventListener('change', show);
+knownOn.addEventListener('change', show);
 staleOnly.addEventListener('change', show);
-staleOnly.checked = new URLSearchParams(window.location.search).get('recall') === 'stale';
+const options = new URLSearchParams(window.location.search);
+for (const date of dates) {
+    if (date.value === options.get('as-of')) date.checked = true;
+}
+knownOn.value = options.get('known-on') ?? '';
+staleOnly.checked = options.get('recall') === 'stale';
 show();

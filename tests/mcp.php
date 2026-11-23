@@ -76,6 +76,13 @@ foreach ([ProtocolVersion::V2025_11_25, ProtocolVersion::V2026_07_28] as $versio
         same(['annual-refunds-v4'], array_column(report($client, $name, ['as_of' => '2026-12-01'])['context'], 'document_id'));
         same([], report($client, $name, ['as_of' => '2026-08-01'])['context']);
         same(true, $client->callTool($name, ['as_of' => '2026-02-30'])->isError);
+        $historical = report($client, $name, ['as_of' => '2026-11-05', 'known_on' => '2026-11-05']);
+        same('2026-11-05', $historical['known_on']);
+        same(['annual-refunds-v2'], array_column($historical['context'], 'document_id'));
+        same(['annual-refunds-v1'], array_column($historical['context'], 'recovered_from'));
+        $corrected = report($client, $name, ['as_of' => '2026-11-05', 'known_on' => '2026-11-10']);
+        same(['annual-refunds-v3'], array_column($corrected['context'], 'document_id'));
+        same(true, $client->callTool($name, ['known_on' => '2026-02-30'])->isError);
     } finally {
         $client->disconnect();
     }
@@ -105,6 +112,13 @@ try {
             'question' => 'What is the annual plan refund window?',
             'as_of' => '2026-11-23',
         ]));
+        $historical = report($client, 'lookup_policy', [
+            'question' => 'What is the annual plan refund window?',
+            'as_of' => '2026-11-23',
+            'known_on' => '2026-11-05',
+        ]);
+        same('2026-11-05', $historical['known_on']);
+        same(['annual-refunds-v2'], array_column($historical['context'], 'document_id'));
     } finally {
         $client->disconnect();
     }

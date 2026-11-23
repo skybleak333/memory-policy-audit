@@ -14,18 +14,33 @@ const ready = (async () => {
         }),
     );
     await init();
-    const db = new RelateDb();
-    seed(db, { nodes, edges }, catalog.revisions);
-    return { db, catalog, fullRecall, staleRecall, successors };
+    return { catalog, fullRecall, staleRecall, queries: { nodes, edges, successors } };
 })();
 
-self.addEventListener('message', async ({ data: { date, staleOnly, request } }) => {
+self.addEventListener('message', async ({ data: { date, knownOn = null, staleOnly, request } }) => {
     try {
-        const { db, catalog, fullRecall, staleRecall, successors } = await ready;
+        if (!isDate(date) || (knownOn !== null && !isDate(knownOn))) {
+            throw new Error('Use a valid date in YYYY-MM-DD format.');
+        }
+        const { catalog, fullRecall, staleRecall, queries } = await ready;
         const recall = staleOnly ? staleRecall : fullRecall;
-        const report = audit(db, successors, catalog.revisions, recall, date);
-        self.postMessage({ request, report, catalog, recall, query: successors });
+        const db = new RelateDb();
+        try {
+            seed(db, queries, catalog.revisions, knownOn);
+            const report = audit(db, queries.successors, catalog.revisions, recall, date, knownOn);
+            self.postMessage({ request, report, catalog, recall, query: queries.nodes.trim() + '\n\n' + queries.successors });
+        } finally {
+            db.free();
+        }
     } catch (error) {
         self.postMessage({ request, error: error.message });
     }
 });
+
+function isDate(value) {
+    return typeof value === 'string'
+        && /^\d{4}-\d{2}-\d{2}$/.test(value)
+        && !value.startsWith('0000-')
+        && Number.isFinite(Date.parse(value))
+        && new Date(value).toISOString().slice(0, 10) === value;
+}
