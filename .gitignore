@@ -1,3 +1,5 @@
 /vendor/
 /.env
+/demo/dist/
+/demo/node_modules/
 .DS_Store

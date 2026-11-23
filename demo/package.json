@@ -1,0 +1,12 @@
+{
+  "name": "memory-policy-audit-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node verify.mjs"
+  },
+  "dependencies": {
+    "@relate/relate-wasm": "1.2.0"
+  }
+}

@@ -33,25 +33,13 @@ final class Relate
             }
 
             $parametersOption = ['--fetch-params', "revisions={$parameters}"];
-            $this->query($database, <<<'CYPHER'
-                UNWIND $revisions AS item
-                CREATE (:Revision {id: item.id, effective_on: item.effective_on})
-                CYPHER, $parametersOption);
-            $this->query($database, <<<'CYPHER'
-                UNWIND $revisions AS item
-                UNWIND item.supersedes AS predecessorId
-                MATCH (newer:Revision {id: item.id}), (older:Revision {id: predecessorId})
-                CREATE (newer)-[:SUPERSEDES]->(older)
-                CYPHER, $parametersOption);
+            $this->query($database, 'create-revisions', $parametersOption);
+            $this->query($database, 'create-edges', $parametersOption);
 
             // The leading endpoint is already bound. Keep it on the left of the variable-length pattern.
-            $rows = $this->query($database, <<<'CYPHER'
-                MATCH (revision:Revision)
-                WHERE revision.effective_on <= $date
-                OPTIONAL MATCH (revision)<-[:SUPERSEDES*1..]-(newer:Revision)
-                WHERE newer.effective_on <= $date
-                RETURN revision.id AS id, collect(DISTINCT newer.id) AS successors
-                CYPHER, ['--read-only', '--param', 'date='.json_encode($asOf, JSON_THROW_ON_ERROR)]);
+            $rows = $this->query($database, 'successors', [
+                '--read-only', '--param', 'date='.json_encode($asOf, JSON_THROW_ON_ERROR),
+            ]);
 
             $byRevision = [];
             foreach ($rows as $row) {
@@ -72,8 +60,13 @@ final class Relate
     }
 
     /** @return list<array<string, mixed>> */
-    private function query(string $database, string $statement, array $options): array
+    private function query(string $database, string $query, array $options): array
     {
+        $statement = file_get_contents(__DIR__.'/../queries/'.$query.'.cypher');
+        if ($statement === false) {
+            throw new RuntimeException("Could not read the Relate query {$query}.");
+        }
+
         $command = [
             $this->binary, '--database', $database, '--mode', 'envelope', '--no-agent-mode', '--max-rows', '0',
             '--timeout', '10s', ...$options, $statement,

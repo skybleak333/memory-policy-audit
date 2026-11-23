@@ -46,6 +46,19 @@ jobs:
           php tests/audit.php "$RUNNER_TEMP/relate"
           php bin/memory-audit demo --relate="$RUNNER_TEMP/relate"
 
+      - uses: actions/setup-node@v4
+        if: matrix.php == '8.2'
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: demo/package-lock.json
+
+      - name: Check parity between the browser demo and the PHP CLI
+        if: matrix.php == '8.2'
+        run: |
+          npm --prefix demo ci --ignore-scripts --no-audit --no-fund
+          npm --prefix demo test -- "$RUNNER_TEMP/relate"
+
       - uses: actions/setup-python@v6
         if: matrix.php == '8.4'
         with:

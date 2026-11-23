@@ -2,6 +2,8 @@
 
 Check the source of an agent's long-term memories before they reach the model. Hindsight retrieves relevant facts. Relate follows the revisions of their source documents and tells the agent which ones are in effect on the requested date.
 
+[Try the browser demo](https://skybleak333.github.io/memory-policy-audit/) and compare three dates. It runs the same Cypher as the PHP tool using Relate compiled to WebAssembly.
+
 In the demo, the highest-ranked memory says customers have 30 days to request a refund. The current policy says 14. The draft for next month says 7. The audit keeps the 14-day fact and cites the current document.
 
 ```text
@@ -15,7 +17,7 @@ Agent context
   https://policies.example/refunds/annual/v3
 ```
 
-## Run the demo
+## Run the CLI demo
 
 Install PHP 8.2 or later and [Relate CLI 1.2.0](https://github.com/relatedb/relate/releases/tag/v1.2.0). The demo runs locally from the supplied recall response and catalog.
 

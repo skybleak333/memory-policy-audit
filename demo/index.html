@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="See how Relate checks the sources of recalled policies before they reach an AI agent.">
+    <title>Memory Policy Audit</title>
+    <link rel="stylesheet" href="styles.css">
+    <script type="module" src="app.js"></script>
+</head>
+<body>
+    <header class="topbar">
+        <div class="shell topbar-inner">
+            <span class="wordmark">Memory Policy Audit</span>
+            <a href="https://github.com/skybleak333/memory-policy-audit">Source code</a>
+        </div>
+    </header>
+
+    <main class="shell">
+        <section class="intro">
+            <h1>Which policy was in effect?</h1>
+            <p>A customer asks, “How long can I request a refund on an annual plan?” Change the date to see which facts make it from Hindsight recall into the agent’s context.</p>
+        </section>
+
+        <fieldset class="date-picker">
+            <legend>Decision date</legend>
+            <div class="date-options">
+                <label><input type="radio" name="as-of" value="2026-09-30"><span>Sep 30, 2026</span></label>
+                <label><input type="radio" name="as-of" value="2026-11-23" checked><span>Nov 23, 2026</span></label>
+                <label><input type="radio" name="as-of" value="2026-12-01"><span>Dec 1, 2026</span></label>
+            </div>
+        </fieldset>
+
+        <p id="status" class="runtime" role="status">Starting Relate in your browser…</p>
+
+        <div id="report" class="report" hidden>
+            <section class="context" aria-labelledby="context-title">
+                <h2 id="context-title">Context for the agent</h2>
+                <p id="accepted-text" class="accepted-text" aria-live="polite"></p>
+                <p id="citation" class="citation"></p>
+                <ol id="timeline" class="timeline" aria-label="Version history"></ol>
+            </section>
+
+            <section class="recall" aria-labelledby="recall-title">
+                <h2 id="recall-title">Recalled facts</h2>
+                <ol id="decisions" class="decisions"></ol>
+            </section>
+        </div>
+
+        <details id="query-panel" class="query-panel" hidden>
+            <summary>Show the Cypher query</summary>
+            <pre><code id="cypher"></code></pre>
+        </details>
+    </main>
+
+    <footer class="shell footer">
+        Synthetic Hindsight recall with an in-browser Relate database.
+    </footer>
+</body>
+</html>
