@@ -1,0 +1,147 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Fedoseev\Hindsight\Hindsight;
+use MemoryPolicyAudit\Audit;
+use MemoryPolicyAudit\Catalog;
+use MemoryPolicyAudit\Relate;
+
+require __DIR__.'/../src/Audit.php';
+require __DIR__.'/../src/Catalog.php';
+require __DIR__.'/../src/Relate.php';
+
+const USAGE = <<<'TEXT'
+    php bin/memory-audit demo [--as-of=YYYY-MM-DD] [--json]
+    php bin/memory-audit audit --catalog=FILE --recall=FILE [--as-of=YYYY-MM-DD] [--json]
+    php bin/memory-audit audit --catalog=FILE --bank=BANK --query=QUESTION [--as-of=YYYY-MM-DD] [--json]
+
+    --relate=PATH selects the Relate CLI (defaults to relate on PATH).
+    Live recall uses HINDSIGHT_URL and optional HINDSIGHT_API_KEY.
+    TEXT;
+
+function readJson(string $path): array
+{
+    if (!is_file($path) || false === ($contents = file_get_contents($path))) {
+        throw new InvalidArgumentException("Could not read {$path}.");
+    }
+
+    $data = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
+    if (!is_array($data)) {
+        throw new InvalidArgumentException("Expected a JSON object in {$path}.");
+    }
+
+    return $data;
+}
+
+/** @return array<string, string|true> */
+function parseOptions(array $arguments, array $allowed): array
+{
+    $options = [];
+    foreach ($arguments as $argument) {
+        if ($argument === '--json') {
+            $options['json'] = true;
+            continue;
+        }
+
+        if (!preg_match('/\A--([a-z-]+)=(.+)\z/s', $argument, $parts) || !in_array($parts[1], $allowed, true)) {
+            throw new InvalidArgumentException("Unknown or empty option: {$argument}");
+        }
+
+        if (isset($options[$parts[1]])) {
+            throw new InvalidArgumentException("Option --{$parts[1]} was given twice.");
+        }
+
+        $options[$parts[1]] = $parts[2];
+    }
+
+    return $options;
+}
+
+function liveRecall(string $bank, string $question, string $asOf): array
+{
+    $autoload = __DIR__.'/../vendor/autoload.php';
+    if (!is_file($autoload)) {
+        throw new RuntimeException('Run composer install before using live Hindsight recall.');
+    }
+    require $autoload;
+
+    $url = getenv('HINDSIGHT_URL');
+    if ($url === false || $url === '') {
+        throw new InvalidArgumentException('Set HINDSIGHT_URL for live recall.');
+    }
+
+    $client = new Hindsight($url, apiKey: getenv('HINDSIGHT_API_KEY') ?: null);
+
+    return $client->recall($bank, $question, queryTimestamp: $asOf.'T23:59:59Z')->raw;
+}
+
+function printable(string $text): string
+{
+    return preg_replace('/[\x00-\x1F\x7F]/u', ' ', $text) ?? $text;
+}
+
+function printReport(array $report): void
+{
+    printf("As of %s\n\n", $report['as_of']);
+    foreach ($report['decisions'] as $decision) {
+        printf("  %-19s %s", $decision['status'], printable($decision['document_id'] ?? $decision['memory_id']));
+        $otherRevisions = $decision['superseded_by'] ?? $decision['current_revisions'] ?? [];
+        if ($otherRevisions !== []) {
+            printf(' (%s)', printable(implode(', ', $otherRevisions)));
+        }
+        echo PHP_EOL;
+    }
+
+    echo "\nAgent context\n";
+    if ($report['context'] === []) {
+        echo "  No current sources.\n";
+    }
+    foreach ($report['context'] as $entry) {
+        printf("  %s\n  %s\n", printable($entry['text']), printable($entry['citation']));
+    }
+}
+
+try {
+    $mode = $argv[1] ?? '--help';
+    if ($mode === '--help' || in_array('--help', array_slice($argv, 2), true)) {
+        echo USAGE, PHP_EOL;
+        exit(0);
+    }
+
+    if ($mode === 'demo') {
+        $options = parseOptions(array_slice($argv, 2), ['as-of', 'relate']);
+        $asOf = Catalog::date($options['as-of'] ?? '2026-11-23');
+        $catalog = new Catalog(readJson(__DIR__.'/../examples/policies.json'));
+        $recall = readJson(__DIR__.'/../examples/recall.json');
+    } elseif ($mode === 'audit') {
+        $options = parseOptions(array_slice($argv, 2), ['as-of', 'relate', 'catalog', 'recall', 'bank', 'query']);
+        $asOf = Catalog::date($options['as-of'] ?? gmdate('Y-m-d'));
+        if (!isset($options['catalog'])) {
+            throw new InvalidArgumentException('Provide a revision catalog with --catalog=FILE.');
+        }
+        $catalog = new Catalog(readJson($options['catalog']));
+
+        if (isset($options['recall']) && !isset($options['bank']) && !isset($options['query'])) {
+            $recall = readJson($options['recall']);
+        } elseif (!isset($options['recall']) && isset($options['bank'], $options['query'])) {
+            $recall = liveRecall($options['bank'], $options['query'], $asOf);
+        } else {
+            throw new InvalidArgumentException('Use --recall=FILE for a saved response or --bank=BANK and --query=QUESTION for live recall.');
+        }
+    } else {
+        throw new InvalidArgumentException("Unknown command: {$mode}");
+    }
+
+    $audit = new Audit(new Relate($options['relate'] ?? 'relate'));
+    $report = $audit->run($catalog, $recall, $asOf);
+    if (isset($options['json'])) {
+        echo json_encode($report, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+    } else {
+        printReport($report);
+    }
+} catch (Throwable $error) {
+    fwrite(STDERR, printable($error->getMessage()).PHP_EOL);
+    exit(1);
+}

@@ -1,0 +1,31 @@
+{
+    "revisions": [
+        {
+            "id": "annual-refunds-v1",
+            "policy": "annual-refunds",
+            "effective_on": "2026-09-01",
+            "citation": "https://policies.example/refunds/annual/v1"
+        },
+        {
+            "id": "annual-refunds-v2",
+            "policy": "annual-refunds",
+            "effective_on": "2026-10-01",
+            "citation": "https://policies.example/refunds/annual/v2",
+            "supersedes": ["annual-refunds-v1"]
+        },
+        {
+            "id": "annual-refunds-v3",
+            "policy": "annual-refunds",
+            "effective_on": "2026-11-01",
+            "citation": "https://policies.example/refunds/annual/v3",
+            "supersedes": ["annual-refunds-v2"]
+        },
+        {
+            "id": "annual-refunds-v4",
+            "policy": "annual-refunds",
+            "effective_on": "2026-12-01",
+            "citation": "https://policies.example/refunds/annual/v4",
+            "supersedes": ["annual-refunds-v3"]
+        }
+    ]
+}

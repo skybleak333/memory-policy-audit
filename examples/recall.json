@@ -1,0 +1,8 @@
+{
+    "results": [
+        {"id": "highest-ranked", "document_id": "annual-refunds-v1", "text": "Annual plans have a 30-day refund window."},
+        {"id": "support-transcript", "document_id": "support-chat", "text": "Annual plans have no refund deadline."},
+        {"id": "draft-policy", "document_id": "annual-refunds-v4", "text": "Annual plans have a 7-day refund window."},
+        {"id": "current-policy", "document_id": "annual-refunds-v3", "text": "Annual plans have a 14-day refund window."}
+    ]
+}
