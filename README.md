@@ -55,11 +55,11 @@ Set `HINDSIGHT_API_KEY` when the server requires authentication. The live mode u
 
 ## Use the audit inside a Laravel AI agent
 
-Add both VCS repositories to your Laravel application's Composer configuration.
+Add both public Git repositories to your Laravel application's Composer configuration.
 
 ```sh
-composer config repositories.memory-policy-audit vcs https://github.com/skybleak333/memory-policy-audit.git
-composer config repositories.hindsight-php vcs https://github.com/skybleak333/hindsight-php.git
+composer config repositories.memory-policy-audit git https://github.com/skybleak333/memory-policy-audit.git
+composer config repositories.hindsight-php git https://github.com/skybleak333/hindsight-php.git
 composer require fedoseev/memory-policy-audit:^0.2
 ```
 
