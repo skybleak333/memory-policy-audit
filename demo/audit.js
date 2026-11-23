@@ -91,6 +91,29 @@ export function audit(db, statement, revisions, recall, date, knownOn = null) {
     return { ...report, decisions, context: context.filter(Boolean) };
 }
 
+export function captureDecision(revisions, recall, report) {
+    const catalog = new Map(revisions.map(revision => [revision.id, revision]));
+    return {
+        format: 'memory-policy-audit/v1',
+        catalog: { revisions: revisions.map(revision => ({
+            id: revision.id,
+            policy: revision.policy,
+            effective_on: revision.effective_on,
+            published_on: publicationDate(revision),
+            citation: revision.citation,
+            supersedes: [...new Set(revision.supersedes ?? [])],
+            excerpt: revision.excerpt ?? null,
+        })) },
+        recall: { results: report.decisions.map((decision, index) => ({
+            id: decision.memory_id,
+            document_id: decision.document_id,
+            text: decision.status === 'current' && catalog.get(decision.document_id).excerpt == null
+                ? recall.results[index].text : null,
+        })) },
+        report,
+    };
+}
+
 function execute(db, statement, params) {
     const result = JSON.parse(db.execute(statement, JSON.stringify(params)));
     if (result.error || result.truncated || !Array.isArray(result.rows)) {

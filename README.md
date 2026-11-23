@@ -64,6 +64,19 @@ php bin/memory-audit demo --as-of=2026-11-05 --known-on=2026-11-10
 
 `--as-of` selects the date the rule needs to cover. `--known-on` limits the graph to revisions published by that day, inclusive. Omit `--known-on` to use all catalog revisions. A recalled source published after the cutoff is classified as `not_yet_published` and its content and citation are excluded from the agent context. The dates describe whole calendar days. Use a saved recall response to replay the inputs of a historical decision. With a live Hindsight bank, the publication cutoff applies to the catalog and the tool uses the bank's current retrieval results.
 
+## Save a decision and verify it offline
+
+Click **Download decision JSON** in the browser demo or use `--record` with the CLI. A decision record contains the date selection, normalized policy catalog, recalled source IDs, and the report. It saves recalled wording only when the audit used that wording in context. Approved excerpts are part of the catalog snapshot.
+
+```sh
+php bin/memory-audit audit --catalog=examples/policies.json \
+  --recall=examples/stale-recall.json --as-of=2026-11-05 --known-on=2026-11-05 \
+  --record > decision.json
+php bin/memory-audit replay --record=decision.json
+```
+
+Replay uses the file and a local Relate executable. It recomputes the report from the saved inputs and exits with an error if the result differs. Associate the record with your application request in your audit log to track its origin.
+
 ## Use the audit inside a Laravel AI agent
 
 Add both public Git repositories to your Laravel application's Composer configuration.
@@ -71,7 +84,7 @@ Add both public Git repositories to your Laravel application's Composer configur
 ```sh
 composer config repositories.memory-policy-audit git https://github.com/skybleak333/memory-policy-audit.git
 composer config repositories.hindsight-php git https://github.com/skybleak333/hindsight-php.git
-composer require fedoseev/memory-policy-audit:^0.6
+composer require fedoseev/memory-policy-audit:^0.7
 ```
 
 In an agent that implements `HasMiddleware`, give Hindsight's memory middleware an audit formatter. Use application-owned policy data and a bank populated with those documents.
@@ -103,7 +116,7 @@ The formatter uses today's UTC date unless you give it an `asOf` date. Give it `
 Add the same Composer repositories as in the Laravel example. The Symfony formatter was added in hindsight-php 0.16.
 
 ```sh
-composer require fedoseev/memory-policy-audit:^0.6 fedoseev/hindsight-php:^0.16 symfony/ai-agent:^0.15
+composer require fedoseev/memory-policy-audit:^0.7 fedoseev/hindsight-php:^0.16 symfony/ai-agent:^0.15
 ```
 
 Pass the formatter to `HindsightMemory` and register it with Symfony AI's `MemoryInputProcessor`. This example replays the policy applicable on November 5 using the revisions published up to that day.
@@ -131,6 +144,14 @@ $agent = new Agent($platform, 'gpt-5-mini', [new MemoryInputProcessor([$memory])
 ```
 
 Use your application's policy catalog and configured Symfony AI platform. With the example catalog and only the oldest revision in Hindsight, Symfony sends the 21-day rule and its citation to the model. Move `knownOn` to November 10 to send the corrected 14-day rule for the same decision date.
+
+In either framework, give `RecallContext` an `onDecision` callback to save completed audits, including ones with an empty agent context. The callback runs before the formatted memory reaches the model. If saving throws an exception, it propagates to the agent's caller.
+
+```php
+$context = new RecallContext($catalog, $audit, onDecision: function (array $record) use ($decisionStore, $requestId): void {
+    $decisionStore->save($requestId, $record);
+});
+```
 
 ## Look up policies from an MCP client
 

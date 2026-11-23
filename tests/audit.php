@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 use MemoryPolicyAudit\Audit;
 use MemoryPolicyAudit\Catalog;
+use MemoryPolicyAudit\DecisionRecord;
 use MemoryPolicyAudit\Relate;
 
 require __DIR__.'/../src/Audit.php';
 require __DIR__.'/../src/Catalog.php';
+require __DIR__.'/../src/DecisionRecord.php';
 require __DIR__.'/../src/Relate.php';
 
 function same(mixed $expected, mixed $actual): void
@@ -43,6 +45,21 @@ same([
 ], $historical['decisions'][3]);
 same(['annual-refunds-v2'], array_column($historical['context'], 'document_id'));
 same(['annual-refunds-v1'], array_column($historical['context'], 'recovered_from'));
+
+$record = DecisionRecord::capture(new Catalog($catalog), $recall, $historical);
+same([null, null, null, null], array_column($record['recall']['results'], 'text'));
+$roundTrip = json_decode(json_encode($record, JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
+$roundTrip['report'] = array_reverse($roundTrip['report'], true);
+same($historical, DecisionRecord::replay($roundTrip, $audit));
+
+$changed = $record;
+$changed['report']['context'][0]['citation'] = 'https://policies.example/refunds/annual/v3';
+try {
+    DecisionRecord::replay($changed, $audit);
+    throw new LogicException('A decision with a different citation passed replay.');
+} catch (RuntimeException $error) {
+    same('Decision record does not match the replayed audit.', $error->getMessage());
+}
 
 $corrected = $audit->run(new Catalog($catalog), $staleRecall, asOf: '2026-11-05', knownOn: '2026-11-10');
 same(['annual-refunds-v3'], array_column($corrected['context'], 'document_id'));
@@ -107,6 +124,9 @@ $report = $audit->run(new Catalog($withoutExcerpt), $staleRecall, '2026-11-23');
 same([], $report['context']);
 $report = $audit->run(new Catalog($withoutExcerpt), $incorrectRecall, '2026-11-23');
 same(['Annual plans have a 90-day refund window.'], array_column($report['context'], 'text'));
+$record = DecisionRecord::capture(new Catalog($withoutExcerpt), $incorrectRecall, $report);
+same([null, null, null, 'Annual plans have a 90-day refund window.'], array_column($record['recall']['results'], 'text'));
+same($report, DecisionRecord::replay($record, $audit));
 
 $catalog['revisions'][] = [
     'id' => 'annual-refunds-v3-branch',

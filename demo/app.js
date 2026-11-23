@@ -1,10 +1,14 @@
+import { captureDecision } from './audit.js';
+
 const status = document.querySelector('#status');
 const report = document.querySelector('#report');
 const dates = document.querySelectorAll('input[name="as-of"]');
 const knownOn = document.querySelector('#known-on');
 const staleOnly = document.querySelector('#stale-only');
+const downloadButton = document.querySelector('#download-decision');
 const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 let request = 0;
+let decisionRecord;
 
 const labels = {
     current: 'Current',
@@ -22,6 +26,7 @@ function show() {
     status.classList.remove('error');
     status.textContent = 'Checking the version graph…';
     report.setAttribute('aria-busy', 'true');
+    downloadButton.disabled = true;
     worker.postMessage({ date, knownOn: knownOn.value || null, staleOnly: staleOnly.checked, request: ++request });
 }
 
@@ -97,6 +102,7 @@ function fail(message) {
     report.setAttribute('aria-busy', 'false');
     report.hidden = true;
     document.querySelector('#query-panel').hidden = true;
+    downloadButton.disabled = true;
     status.classList.add('error');
     status.textContent = 'Could not run the audit. ' + message;
 }
@@ -108,6 +114,19 @@ worker.addEventListener('message', ({ data }) => {
         return;
     }
     display(data.report, data.catalog, data.recall, data.query);
+    decisionRecord = captureDecision(data.catalog.revisions, data.recall, data.report);
+    downloadButton.disabled = false;
+});
+
+downloadButton.addEventListener('click', () => {
+    const { as_of, known_on } = decisionRecord.report;
+    const blob = new Blob([JSON.stringify(decisionRecord, null, 2) + '\n'], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'memory-policy-' + as_of + (known_on ? '-published-' + known_on : '') + '.json';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
 worker.addEventListener('error', () => fail('The Relate worker could not load.'));

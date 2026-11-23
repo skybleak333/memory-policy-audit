@@ -187,6 +187,19 @@ try {
     assert.equal(await page.locator('input[name="as-of"]:checked').inputValue(), '2026-11-05');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390);
     console.log('The graph demo switches from v2 to v3 when only the publication cutoff changes.');
+
+    const [download] = await Promise.all([
+        page.waitForEvent('download'),
+        page.getByRole('button', { name: 'Download decision JSON' }).click(),
+    ]);
+    assert.equal(download.suggestedFilename(), 'memory-policy-2026-11-05-published-2026-11-10.json');
+    const record = JSON.parse(await readFile(await download.path(), 'utf8'));
+    assert.equal(record.format, 'memory-policy-audit/v1');
+    assert.equal(record.report.as_of, '2026-11-05');
+    assert.equal(record.report.known_on, '2026-11-10');
+    assert.deepEqual(record.recall.results.map(result => result.text), [null]);
+    assert.equal(record.report.context[0].citation, 'https://policies.example/refunds/annual/v3');
+    console.log('The browser downloads the decision for the current dates.');
 } finally {
     await browser?.close();
     for (const instance of [policy, caller]) instance?.server.close();

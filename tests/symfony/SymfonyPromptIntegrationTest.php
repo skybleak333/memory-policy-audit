@@ -8,6 +8,7 @@ use Fedoseev\Hindsight\Testing\HindsightFake;
 use Fedoseev\Hindsight\Symfony\Ai\HindsightMemory;
 use MemoryPolicyAudit\Audit;
 use MemoryPolicyAudit\Catalog;
+use MemoryPolicyAudit\DecisionRecord;
 use MemoryPolicyAudit\RecallContext;
 use MemoryPolicyAudit\Relate;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -37,14 +38,20 @@ final class SymfonyPromptIntegrationTest extends TestCase
         try {
             PolicyScenario::seed($client, $bank, staleOnly: true);
             $policies = json_decode(file_get_contents(__DIR__.'/../../examples/policies.json'), true, flags: JSON_THROW_ON_ERROR);
+            $audit = new Audit(new Relate(getenv('RELATE_BIN') ?: 'relate'));
+            $records = [];
             $context = new RecallContext(
                 new Catalog($policies),
-                new Audit(new Relate(getenv('RELATE_BIN') ?: 'relate')),
+                $audit,
                 asOf: '2026-11-05',
                 knownOn: $knownOn,
+                onDecision: static function (array $record) use (&$records): void {
+                    $records[] = $record;
+                },
             );
             $memory = new HindsightMemory($client, $bank, retain: false, timeout: 60, throw: true, recallFormatter: $context(...));
-            $platform = MockPlatformFactory::createPlatform(function ($model, $payload) use ($days, $revision, $excludedDays, $excludedRevision): string {
+            $platform = MockPlatformFactory::createPlatform(function ($model, $payload) use ($days, $revision, $excludedDays, $excludedRevision, &$records): string {
+                $this->assertCount(1, $records);
                 $prompt = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
                 $this->assertStringContainsString('Conversation Memory', $prompt);
                 $this->assertStringContainsString("Annual plans have a {$days}-day refund window. (https://policies.example/refunds/annual/{$revision})", $prompt);
@@ -62,6 +69,10 @@ final class SymfonyPromptIntegrationTest extends TestCase
             ));
 
             $this->assertSame('See the cited refund policy.', $result->getContent());
+            $replayed = DecisionRecord::replay($records[0], $audit);
+            $this->assertSame($knownOn, $replayed['known_on']);
+            $this->assertSame("Annual plans have a {$days}-day refund window.", $replayed['context'][0]['text']);
+            $this->assertSame("https://policies.example/refunds/annual/{$revision}", $replayed['context'][0]['citation']);
         } finally {
             try {
                 $client->deleteBank($bank);

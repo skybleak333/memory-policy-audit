@@ -6,18 +6,22 @@ declare(strict_types=1);
 use Fedoseev\Hindsight\Hindsight;
 use MemoryPolicyAudit\Audit;
 use MemoryPolicyAudit\Catalog;
+use MemoryPolicyAudit\DecisionRecord;
 use MemoryPolicyAudit\Relate;
 
 require __DIR__.'/../src/Audit.php';
 require __DIR__.'/../src/Catalog.php';
+require __DIR__.'/../src/DecisionRecord.php';
 require __DIR__.'/../src/Relate.php';
 
 const USAGE = <<<'TEXT'
-    php bin/memory-audit demo [--as-of=YYYY-MM-DD] [--known-on=YYYY-MM-DD] [--json]
-    php bin/memory-audit audit --catalog=FILE --recall=FILE [--as-of=YYYY-MM-DD] [--known-on=YYYY-MM-DD] [--json]
-    php bin/memory-audit audit --catalog=FILE --bank=BANK --query=QUESTION [--as-of=YYYY-MM-DD] [--known-on=YYYY-MM-DD] [--json]
+    php bin/memory-audit demo [--as-of=YYYY-MM-DD] [--known-on=YYYY-MM-DD] [--json | --record]
+    php bin/memory-audit audit --catalog=FILE --recall=FILE [--as-of=YYYY-MM-DD] [--known-on=YYYY-MM-DD] [--json | --record]
+    php bin/memory-audit audit --catalog=FILE --bank=BANK --query=QUESTION [--as-of=YYYY-MM-DD] [--known-on=YYYY-MM-DD] [--json | --record]
+    php bin/memory-audit replay --record=FILE [--json]
 
     --as-of selects the effective date. --known-on limits the catalog to published revisions.
+    --record writes a replayable decision record to stdout in audit and demo mode.
     --relate=PATH selects the Relate CLI (defaults to relate on PATH).
     Live recall uses HINDSIGHT_URL and optional HINDSIGHT_API_KEY.
     TEXT;
@@ -37,12 +41,12 @@ function readJson(string $path): array
 }
 
 /** @return array<string, string|true> */
-function parseOptions(array $arguments, array $allowed): array
+function parseOptions(array $arguments, array $allowed, array $flags): array
 {
     $options = [];
     foreach ($arguments as $argument) {
-        if ($argument === '--json') {
-            $options['json'] = true;
+        if (in_array($argument, $flags, true)) {
+            $options[substr($argument, 2)] = true;
             continue;
         }
 
@@ -76,6 +80,28 @@ function liveRecall(string $bank, string $question, string $asOf): array
     $client = new Hindsight($url, apiKey: getenv('HINDSIGHT_API_KEY') ?: null);
 
     return $client->recall($bank, $question, queryTimestamp: $asOf.'T23:59:59Z')->raw;
+}
+
+/** @return array{Catalog, array} */
+function auditInputs(string $mode, array $options, string $asOf): array
+{
+    if ($mode === 'demo') {
+        return [new Catalog(readJson(__DIR__.'/../examples/policies.json')), readJson(__DIR__.'/../examples/recall.json')];
+    }
+
+    if (!isset($options['catalog'])) {
+        throw new InvalidArgumentException('Provide a revision catalog with --catalog=FILE.');
+    }
+    $catalog = new Catalog(readJson($options['catalog']));
+
+    if (isset($options['recall']) && !isset($options['bank']) && !isset($options['query'])) {
+        return [$catalog, readJson($options['recall'])];
+    }
+    if (!isset($options['recall']) && isset($options['bank'], $options['query'])) {
+        return [$catalog, liveRecall($options['bank'], $options['query'], $asOf)];
+    }
+
+    throw new InvalidArgumentException('Use --recall=FILE for a saved response or --bank=BANK and --query=QUESTION for live recall.');
 }
 
 function printable(string $text): string
@@ -121,37 +147,35 @@ try {
         exit(0);
     }
 
-    $auditOptions = match ($mode) {
-        'demo' => [],
-        'audit' => ['catalog', 'recall', 'bank', 'query'],
+    $allowed = match ($mode) {
+        'demo' => ['as-of', 'known-on'],
+        'audit' => ['as-of', 'known-on', 'catalog', 'recall', 'bank', 'query'],
+        'replay' => ['record'],
         default => throw new InvalidArgumentException("Unknown command: {$mode}"),
     };
-    $options = parseOptions(array_slice($argv, 2), ['as-of', 'known-on', 'relate', ...$auditOptions]);
-    $asOf = Catalog::date($options['as-of'] ?? ($mode === 'demo' ? '2026-11-23' : gmdate('Y-m-d')));
-    $knownOn = isset($options['known-on']) ? Catalog::date($options['known-on']) : null;
+    $flags = $mode === 'replay' ? ['--json'] : ['--json', '--record'];
+    $options = parseOptions(array_slice($argv, 2), ['relate', ...$allowed], $flags);
+    $audit = new Audit(new Relate($options['relate'] ?? 'relate'));
 
-    if ($mode === 'demo') {
-        $catalog = new Catalog(readJson(__DIR__.'/../examples/policies.json'));
-        $recall = readJson(__DIR__.'/../examples/recall.json');
+    if ($mode === 'replay') {
+        if (!isset($options['record'])) {
+            throw new InvalidArgumentException('Provide a decision record with --record=FILE.');
+        }
+        $report = DecisionRecord::replay(readJson($options['record']), $audit);
     } else {
-        if (!isset($options['catalog'])) {
-            throw new InvalidArgumentException('Provide a revision catalog with --catalog=FILE.');
+        if (isset($options['record'], $options['json'])) {
+            throw new InvalidArgumentException('Choose either --record or --json.');
         }
-        $catalog = new Catalog(readJson($options['catalog']));
-
-        if (isset($options['recall']) && !isset($options['bank']) && !isset($options['query'])) {
-            $recall = readJson($options['recall']);
-        } elseif (!isset($options['recall']) && isset($options['bank'], $options['query'])) {
-            $recall = liveRecall($options['bank'], $options['query'], $asOf);
-        } else {
-            throw new InvalidArgumentException('Use --recall=FILE for a saved response or --bank=BANK and --query=QUESTION for live recall.');
-        }
+        $asOf = Catalog::date($options['as-of'] ?? ($mode === 'demo' ? '2026-11-23' : gmdate('Y-m-d')));
+        $knownOn = isset($options['known-on']) ? Catalog::date($options['known-on']) : null;
+        [$catalog, $recall] = auditInputs($mode, $options, $asOf);
+        $report = $audit->run($catalog, $recall, $asOf, $knownOn);
     }
 
-    $audit = new Audit(new Relate($options['relate'] ?? 'relate'));
-    $report = $audit->run($catalog, $recall, $asOf, $knownOn);
-    if (isset($options['json'])) {
-        echo json_encode($report, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+    $capture = $mode !== 'replay' && isset($options['record']);
+    if ($capture || isset($options['json'])) {
+        $output = $capture ? DecisionRecord::capture($catalog, $recall, $report) : $report;
+        echo json_encode($output, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
     } else {
         printReport($report);
     }
