@@ -8,7 +8,7 @@
     ],
     "require": {
         "php": "^8.2",
-        "fedoseev/hindsight-php": "^0.15"
+        "fedoseev/hindsight-php": "^0.15 || ^0.16"
     },
     "autoload": {
         "psr-4": {"MemoryPolicyAudit\\": "src/"}

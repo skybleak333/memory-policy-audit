@@ -103,6 +103,15 @@ jobs:
           HINDSIGHT_URL: http://127.0.0.1:8888
         run: php tests/mcp.php "$RUNNER_TEMP/relate" --live
 
+      - name: Verify the Symfony AI prompt with audited memory
+        if: matrix.php == '8.4'
+        env:
+          HINDSIGHT_URL: http://127.0.0.1:8888
+        run: |
+          composer --working-dir=tests/symfony install --no-interaction --no-progress --prefer-dist
+          RELATE_BIN="$RUNNER_TEMP/relate" tests/symfony/vendor/bin/phpunit --no-configuration \
+            --bootstrap tests/symfony/vendor/autoload.php tests/symfony/SymfonyPromptIntegrationTest.php
+
       - name: Print the server log on failure
         if: failure() && matrix.php == '8.4'
         run: |

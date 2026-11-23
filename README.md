@@ -71,7 +71,7 @@ Add both public Git repositories to your Laravel application's Composer configur
 ```sh
 composer config repositories.memory-policy-audit git https://github.com/skybleak333/memory-policy-audit.git
 composer config repositories.hindsight-php git https://github.com/skybleak333/hindsight-php.git
-composer require fedoseev/memory-policy-audit:^0.5
+composer require fedoseev/memory-policy-audit:^0.6
 ```
 
 In an agent that implements `HasMiddleware`, give Hindsight's memory middleware an audit formatter. Use application-owned policy data and a bank populated with those documents.
@@ -97,6 +97,40 @@ public function middleware(): array
 ```
 
 The formatter uses today's UTC date unless you give it an `asOf` date. Give it `knownOn` to apply a publication cutoff. It adds citations for accepted facts before the first model call. If all recalled sources are excluded, the agent receives no memory block. An audit error propagates to the caller.
+
+## Use the audit inside a Symfony AI agent
+
+Add the same Composer repositories as in the Laravel example. The Symfony formatter was added in hindsight-php 0.16.
+
+```sh
+composer require fedoseev/memory-policy-audit:^0.6 fedoseev/hindsight-php:^0.16 symfony/ai-agent:^0.15
+```
+
+Pass the formatter to `HindsightMemory` and register it with Symfony AI's `MemoryInputProcessor`. This example replays the policy applicable on November 5 using the revisions published up to that day.
+
+```php
+use Fedoseev\Hindsight\Hindsight;
+use Fedoseev\Hindsight\Symfony\Ai\HindsightMemory;
+use MemoryPolicyAudit\Audit;
+use MemoryPolicyAudit\Catalog;
+use MemoryPolicyAudit\RecallContext;
+use MemoryPolicyAudit\Relate;
+use Symfony\AI\Agent\Agent;
+use Symfony\AI\Agent\Memory\MemoryInputProcessor;
+
+$policies = json_decode(file_get_contents(__DIR__.'/policies.json'), true, flags: JSON_THROW_ON_ERROR);
+$context = new RecallContext(
+    new Catalog($policies),
+    new Audit(new Relate()),
+    asOf: '2026-11-05',
+    knownOn: '2026-11-05',
+);
+$client = new Hindsight('http://127.0.0.1:8888');
+$memory = new HindsightMemory($client, 'support-policies', retain: false, recallFormatter: $context(...));
+$agent = new Agent($platform, 'gpt-5-mini', [new MemoryInputProcessor([$memory])]);
+```
+
+Use your application's policy catalog and configured Symfony AI platform. With the example catalog and only the oldest revision in Hindsight, Symfony sends the 21-day rule and its citation to the model. Move `knownOn` to November 10 to send the corrected 14-day rule for the same decision date.
 
 ## Look up policies from an MCP client
 
@@ -154,4 +188,4 @@ Keep the catalog under the control of whoever approves policy. The audit uses it
 php tests/audit.php
 ```
 
-The tests cover historical dates, recovery from stale recall, and conflicting branches on a real Relate database. GitHub Actions also checks the Laravel AI prompt when a local Hindsight server holds only the older revision.
+The tests cover historical dates, recovery from stale recall, and conflicting branches on a real Relate database. GitHub Actions also checks the Laravel AI and Symfony AI prompts with a local Hindsight server and a scripted model response.

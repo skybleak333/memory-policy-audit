@@ -1,0 +1,20 @@
+{
+    "name": "fedoseev/memory-policy-audit-symfony-tests",
+    "description": "Symfony AI integration tests for Memory Policy Audit.",
+    "license": "MIT",
+    "type": "project",
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../..",
+            "options": {"versions": {"fedoseev/memory-policy-audit": "dev-main"}}
+        },
+        {"type": "git", "url": "https://github.com/skybleak333/hindsight-php.git"}
+    ],
+    "require-dev": {
+        "fedoseev/hindsight-php": "^0.16",
+        "fedoseev/memory-policy-audit": "dev-main",
+        "phpunit/phpunit": "^11.5 || ^12.0",
+        "symfony/ai-agent": "^0.15"
+    }
+}

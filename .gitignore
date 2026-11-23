@@ -5,4 +5,6 @@
 /demo/node_modules/
 /tests/laravel/vendor/
 /tests/laravel/composer.lock
+/tests/symfony/vendor/
+/tests/symfony/composer.lock
 .DS_Store

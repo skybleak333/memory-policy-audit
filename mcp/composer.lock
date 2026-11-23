@@ -56,11 +56,11 @@
         },
         {
             "name": "fedoseev/hindsight-php",
-            "version": "v0.15.0",
+            "version": "v0.16.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/skybleak333/hindsight-php.git",
-                "reference": "769a36c0ce80efd41d87f1cb27d492195d970175"
+                "reference": "c7e7510ce1294cfd3dd235e8a61e608654820952"
             },
             "require": {
                 "guzzlehttp/guzzle": "^7.15 || ^8.0",
@@ -147,7 +147,7 @@
                 "symfony",
                 "symfony-ai"
             ],
-            "time": "2026-11-23T12:34:58+00:00"
+            "time": "2026-11-23T13:44:57+00:00"
         },
         {
             "name": "fedoseev/memory-policy-audit",
@@ -155,10 +155,10 @@
             "dist": {
                 "type": "path",
                 "url": "..",
-                "reference": "cdb47656712efd2a169736bb4dd08a859f9aa023"
+                "reference": "8ce338a38eb497d96864b24d085396ec458bbf4f"
             },
             "require": {
-                "fedoseev/hindsight-php": "^0.15",
+                "fedoseev/hindsight-php": "^0.15 || ^0.16",
                 "php": "^8.2"
             },
             "type": "library",
