@@ -31,9 +31,10 @@ jobs:
       - run: npm --prefix demo run build
       - name: Check the published network in Chrome
         run: npm --prefix demo run test:agent-site
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: demo/dist
+          include-hidden-files: true
 
   deploy:
     runs-on: ubuntu-latest
@@ -47,3 +48,10 @@ jobs:
     steps:
       - uses: actions/deploy-pages@v4
         id: deployment
+      - name: Verify public agent discovery
+        env:
+          SITE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          curl --fail --silent --show-error --retry 3 --retry-all-errors \
+            "${SITE_URL%/}/agents/.well-known/nsdeploy.json?commit=$GITHUB_SHA" \
+            | jq -e 'any(.exports[]; .network == "policy_audit")'
