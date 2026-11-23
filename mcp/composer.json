@@ -1,0 +1,27 @@
+{
+    "name": "fedoseev/memory-policy-audit-mcp",
+    "description": "Read-only MCP server for Memory Policy Audit.",
+    "license": "MIT",
+    "type": "project",
+    "repositories": [
+        {
+            "type": "path",
+            "url": "..",
+            "options": {
+                "reference": "config",
+                "versions": {"fedoseev/memory-policy-audit": "dev-main"}
+            }
+        },
+        {"type": "git", "url": "https://github.com/skybleak333/hindsight-php.git"}
+    ],
+    "require": {
+        "php": "^8.2",
+        "fedoseev/memory-policy-audit": "dev-main",
+        "mcp/sdk": "^0.10"
+    },
+    "config": {
+        "allow-plugins": {"php-http/discovery": false},
+        "platform": {"php": "8.2.0"},
+        "sort-packages": true
+    }
+}

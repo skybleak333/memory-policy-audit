@@ -1,4 +1,5 @@
 /vendor/
+/mcp/vendor/
 /.env
 /demo/dist/
 /demo/node_modules/

@@ -1,0 +1,42 @@
+{
+    "type": "object",
+    "required": ["as_of", "context", "decisions"],
+    "properties": {
+        "as_of": {"type": "string", "format": "date"},
+        "context": {
+            "type": "array",
+            "description": "Approved excerpts to use in the answer. An empty array means no approved source was found.",
+            "items": {
+                "type": "object",
+                "required": ["document_id", "text", "citation"],
+                "properties": {
+                    "document_id": {"type": "string"},
+                    "text": {"type": "string"},
+                    "citation": {"type": "string"},
+                    "recovered_from": {"type": "string"}
+                }
+            }
+        },
+        "decisions": {
+            "type": "array",
+            "description": "Source classification for each recalled fact.",
+            "items": {
+                "type": "object",
+                "required": ["memory_id", "document_id", "status"],
+                "properties": {
+                    "memory_id": {"type": "string"},
+                    "document_id": {"type": ["string", "null"]},
+                    "status": {
+                        "enum": ["current", "superseded", "conflicting", "not_yet_effective", "unverified"]
+                    },
+                    "policy": {"type": "string"},
+                    "effective_on": {"type": "string", "format": "date"},
+                    "citation": {"type": "string"},
+                    "superseded_by": {"type": "array", "items": {"type": "string"}},
+                    "current_revisions": {"type": "array", "items": {"type": "string"}},
+                    "resolved_to": {"type": "string"}
+                }
+            }
+        }
+    }
+}

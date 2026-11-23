@@ -46,6 +46,11 @@ jobs:
           php tests/audit.php "$RUNNER_TEMP/relate"
           php bin/memory-audit demo --relate="$RUNNER_TEMP/relate"
 
+      - name: Verify the MCP server with saved recall
+        run: |
+          composer --working-dir=mcp install --no-interaction --no-progress --prefer-dist
+          php tests/mcp.php "$RUNNER_TEMP/relate"
+
       - uses: actions/setup-node@v4
         if: matrix.php == '8.2'
         with:
@@ -91,6 +96,12 @@ jobs:
           composer --working-dir=tests/laravel install --no-interaction --no-progress --prefer-dist
           RELATE_BIN="$RUNNER_TEMP/relate" tests/laravel/vendor/bin/phpunit --no-configuration \
             --bootstrap tests/laravel/vendor/autoload.php tests/laravel/PromptIntegrationTest.php
+
+      - name: Verify MCP lookup against live Hindsight
+        if: matrix.php == '8.4'
+        env:
+          HINDSIGHT_URL: http://127.0.0.1:8888
+        run: php tests/mcp.php "$RUNNER_TEMP/relate" --live
 
       - name: Print the server log on failure
         if: failure() && matrix.php == '8.4'

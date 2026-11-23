@@ -87,6 +87,34 @@ public function middleware(): array
 
 The formatter uses today's UTC date unless you give it an `asOf` date. It adds citations for accepted facts before the first model call. If all recalled sources are excluded, the agent receives no memory block. An audit error propagates to the caller.
 
+## Look up policies from an MCP client
+
+Install the MCP server's dependencies in the cloned repository. It uses the [official PHP MCP SDK](https://github.com/modelcontextprotocol/php-sdk) and runs over standard input and output.
+
+```sh
+composer --working-dir=mcp install
+```
+
+Add the server to a client that supports stdio. This example shows the JSON configuration used by clients such as Claude Desktop. Use absolute paths to PHP, the server script, and the Relate executable.
+
+```json
+{
+    "mcpServers": {
+        "memory-policy-audit": {
+            "command": "/path/to/php",
+            "args": ["/path/to/memory-policy-audit/mcp/server.php", "--demo"],
+            "env": {"RELATE_BIN": "/path/to/relate"}
+        }
+    }
+}
+```
+
+Call `lookup_refund_policy` with `{"as_of": "2026-11-23"}`. Relate finds the 14-day refund rule and returns its citation with `recovered_from: annual-refunds-v1`. Change the date to September 30 or December 1 to see when the window was 30 or 7 days. The demo uses the included recall fixture and needs no Hindsight server or model key.
+
+For live lookup, remove `--demo` and set `POLICY_CATALOG` to the absolute path of your approved catalog, `HINDSIGHT_URL` to your Hindsight endpoint, and `HINDSIGHT_BANK` to the policy bank. Set `HINDSIGHT_API_KEY` in the server environment if authentication is required. Every catalog revision needs an approved `excerpt`. Restart the server after updating the catalog.
+
+The live tool is `lookup_policy`. It takes a `question` and an optional `as_of` date, which defaults to today in UTC. Both tools provide a structured report containing approved text and canonical citations in `context` and explanations in `decisions`. Clients that use text results get the same report as JSON. The server only exposes the configured bank and does not retain conversations.
+
 ## How the audit decides
 
 Relate builds a local graph of revisions and walks incoming `SUPERSEDES` relationships. A revision is current when it has taken effect and is the only remaining version of its policy at that date. When two branches remain in effect, the audit marks both as conflicting until a later revision supersedes them. Memories from documents missing from the catalog are unverified.
