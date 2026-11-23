@@ -43,7 +43,28 @@
             Recall only the oldest policy
         </label>
 
+        <details id="comparison-options" class="query-panel comparison-options">
+            <summary>Compare publication cutoffs</summary>
+            <label class="publication-cutoff">
+                Comparison cutoff
+                <input id="compare-known-on" type="date" min="0001-01-01" max="9999-12-31">
+            </label>
+        </details>
+
         <p id="status" class="runtime" role="status">Starting Relate in your browser…</p>
+
+        <section id="comparison" class="comparison context" aria-labelledby="comparison-title" hidden>
+            <h2 id="comparison-title">Publication comparison</h2>
+            <p id="comparison-error" class="runtime error" role="status" hidden></p>
+            <div id="comparison-results" hidden>
+                <div id="comparison-sides" class="comparison-sides"></div>
+                <ul id="publication-changes" class="publication-changes"></ul>
+                <div class="comparison-downloads">
+                    <button id="download-comparison" class="download-decision" type="button">Download comparison decision</button>
+                    <button id="download-selected" class="download-decision" type="button">Download selected decision</button>
+                </div>
+            </div>
+        </section>
 
         <div id="report" class="report" hidden>
             <section class="context" aria-labelledby="context-title">

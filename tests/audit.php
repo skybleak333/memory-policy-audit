@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 use MemoryPolicyAudit\Audit;
 use MemoryPolicyAudit\Catalog;
+use MemoryPolicyAudit\DecisionComparison;
 use MemoryPolicyAudit\DecisionRecord;
 use MemoryPolicyAudit\Relate;
 
 require __DIR__.'/../src/Audit.php';
 require __DIR__.'/../src/Catalog.php';
+require __DIR__.'/../src/DecisionComparison.php';
 require __DIR__.'/../src/DecisionRecord.php';
 require __DIR__.'/../src/Relate.php';
 
@@ -63,6 +65,52 @@ try {
 
 $corrected = $audit->run(new Catalog($catalog), $staleRecall, asOf: '2026-11-05', knownOn: '2026-11-10');
 same(['annual-refunds-v3'], array_column($corrected['context'], 'document_id'));
+
+$comparison = new DecisionComparison($audit);
+$policyCatalog = new Catalog($catalog);
+$original = $audit->run($policyCatalog, $staleRecall, '2026-11-05', '2026-11-05');
+$beforeRecord = DecisionRecord::capture($policyCatalog, $staleRecall, $original);
+$afterRecord = DecisionRecord::capture($policyCatalog, $staleRecall, $corrected);
+$difference = $comparison->compare($beforeRecord, $afterRecord);
+same(['as_of' => '2026-11-05', 'known_on' => '2026-11-05'], $difference['before']);
+same(['as_of' => '2026-11-05', 'known_on' => '2026-11-10'], $difference['after']);
+same(false, $difference['catalog_changed']);
+same(false, $difference['recall_sources_changed']);
+same(['annual-refunds-v3'], array_column($difference['newly_visible'], 'id'));
+same(['2026-11-10'], array_column($difference['newly_visible'], 'published_on'));
+same(['2026-11-01'], array_column($difference['newly_visible'], 'effective_on'));
+same([], $difference['no_longer_visible']);
+same([[
+    'policy' => 'annual-refunds',
+    'before' => [['document_id' => 'annual-refunds-v2', 'text' => 'Annual plans have a 21-day refund window.', 'citation' => 'https://policies.example/refunds/annual/v2']],
+    'after' => [['document_id' => 'annual-refunds-v3', 'text' => 'Annual plans have a 14-day refund window.', 'citation' => 'https://policies.example/refunds/annual/v3']],
+]], $difference['context_changes']);
+
+$reversed = $comparison->compare($afterRecord, $beforeRecord);
+same(['annual-refunds-v3'], array_column($reversed['no_longer_visible'], 'id'));
+same([], $comparison->compare($afterRecord, $afterRecord)['context_changes']);
+same(true, $comparison->compare($record, $afterRecord)['recall_sources_changed']);
+
+$later = $audit->run($policyCatalog, $staleRecall, '2026-11-05', '2026-11-23');
+$difference = $comparison->compare($afterRecord, DecisionRecord::capture($policyCatalog, $staleRecall, $later));
+same(['annual-refunds-v4'], array_column($difference['newly_visible'], 'id'));
+same([], $difference['context_changes']);
+
+$alteredCatalog = $catalog;
+$alteredCatalog['revisions'][2]['excerpt'] = 'Annual plans have a 15-day refund window.';
+$altered = new Catalog($alteredCatalog);
+$changedPolicy = DecisionRecord::capture($altered, $staleRecall, $audit->run($altered, $staleRecall, '2026-11-05', '2026-11-10'));
+$difference = $comparison->compare($afterRecord, $changedPolicy);
+same(true, $difference['catalog_changed']);
+same([], $difference['newly_visible']);
+same('Annual plans have a 15-day refund window.', $difference['context_changes'][0]['after'][0]['text']);
+
+try {
+    $comparison->compare($changed, $afterRecord);
+    throw new LogicException('Comparison accepted a report with a changed citation.');
+} catch (RuntimeException $error) {
+    same('Decision record does not match the replayed audit.', $error->getMessage());
+}
 
 $scheduled = $audit->run(new Catalog($catalog), $staleRecall, asOf: '2026-12-01', knownOn: '2026-11-23');
 same(['annual-refunds-v4'], array_column($scheduled['context'], 'document_id'));

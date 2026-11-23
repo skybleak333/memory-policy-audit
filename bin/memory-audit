@@ -6,11 +6,13 @@ declare(strict_types=1);
 use Fedoseev\Hindsight\Hindsight;
 use MemoryPolicyAudit\Audit;
 use MemoryPolicyAudit\Catalog;
+use MemoryPolicyAudit\DecisionComparison;
 use MemoryPolicyAudit\DecisionRecord;
 use MemoryPolicyAudit\Relate;
 
 require __DIR__.'/../src/Audit.php';
 require __DIR__.'/../src/Catalog.php';
+require __DIR__.'/../src/DecisionComparison.php';
 require __DIR__.'/../src/DecisionRecord.php';
 require __DIR__.'/../src/Relate.php';
 
@@ -19,6 +21,7 @@ const USAGE = <<<'TEXT'
     php bin/memory-audit audit --catalog=FILE --recall=FILE [--as-of=YYYY-MM-DD] [--known-on=YYYY-MM-DD] [--json | --record]
     php bin/memory-audit audit --catalog=FILE --bank=BANK --query=QUESTION [--as-of=YYYY-MM-DD] [--known-on=YYYY-MM-DD] [--json | --record]
     php bin/memory-audit replay --record=FILE [--json]
+    php bin/memory-audit compare --before=FILE --after=FILE [--json]
 
     --as-of selects the effective date. --known-on limits the catalog to published revisions.
     --record writes a replayable decision record to stdout in audit and demo mode.
@@ -140,6 +143,47 @@ function printReport(array $report): void
     }
 }
 
+function printComparison(array $comparison): void
+{
+    foreach (['before' => 'Before', 'after' => 'After'] as $side => $label) {
+        $dates = $comparison[$side];
+        printf("%s: effective %s, %s\n", $label, $dates['as_of'], $dates['known_on'] === null ? 'all publications' : 'published by '.$dates['known_on']);
+    }
+    if ($comparison['catalog_changed'] || $comparison['recall_sources_changed']) {
+        $changed = array_filter([
+            $comparison['catalog_changed'] ? 'policy catalog' : null,
+            $comparison['recall_sources_changed'] ? 'recalled source IDs or order' : null,
+        ]);
+        printf("Other inputs changed: %s\n", implode(', ', $changed));
+    }
+
+    foreach (['newly_visible' => 'Newly visible publications', 'no_longer_visible' => 'No longer visible'] as $key => $label) {
+        if ($comparison[$key] === []) {
+            continue;
+        }
+        printf("\n%s\n", $label);
+        foreach ($comparison[$key] as $revision) {
+            printf("  %s, published %s, effective %s\n", printable($revision['id']), $revision['published_on'], $revision['effective_on']);
+        }
+    }
+
+    if ($comparison['context_changes'] === []) {
+        echo "\nNo policy context changed.\n";
+    }
+    foreach ($comparison['context_changes'] as $change) {
+        printf("\n%s\n", printable($change['policy']));
+        foreach (['before' => 'Before', 'after' => 'After'] as $side => $label) {
+            printf("  %s\n", $label);
+            if ($change[$side] === []) {
+                echo "    No current source.\n";
+            }
+            foreach ($change[$side] as $entry) {
+                printf("    %s\n    %s\n", printable($entry['text']), printable($entry['citation']));
+            }
+        }
+    }
+}
+
 try {
     $mode = $argv[1] ?? '--help';
     if ($mode === '--help' || in_array('--help', array_slice($argv, 2), true)) {
@@ -151,13 +195,19 @@ try {
         'demo' => ['as-of', 'known-on'],
         'audit' => ['as-of', 'known-on', 'catalog', 'recall', 'bank', 'query'],
         'replay' => ['record'],
+        'compare' => ['before', 'after'],
         default => throw new InvalidArgumentException("Unknown command: {$mode}"),
     };
-    $flags = $mode === 'replay' ? ['--json'] : ['--json', '--record'];
+    $flags = in_array($mode, ['demo', 'audit'], true) ? ['--json', '--record'] : ['--json'];
     $options = parseOptions(array_slice($argv, 2), ['relate', ...$allowed], $flags);
     $audit = new Audit(new Relate($options['relate'] ?? 'relate'));
 
-    if ($mode === 'replay') {
+    if ($mode === 'compare') {
+        if (!isset($options['before'], $options['after'])) {
+            throw new InvalidArgumentException('Provide both decision records with --before=FILE and --after=FILE.');
+        }
+        $report = (new DecisionComparison($audit))->compare(readJson($options['before']), readJson($options['after']));
+    } elseif ($mode === 'replay') {
         if (!isset($options['record'])) {
             throw new InvalidArgumentException('Provide a decision record with --record=FILE.');
         }
@@ -172,10 +222,12 @@ try {
         $report = $audit->run($catalog, $recall, $asOf, $knownOn);
     }
 
-    $capture = $mode !== 'replay' && isset($options['record']);
+    $capture = in_array($mode, ['demo', 'audit'], true) && isset($options['record']);
     if ($capture || isset($options['json'])) {
         $output = $capture ? DecisionRecord::capture($catalog, $recall, $report) : $report;
         echo json_encode($output, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+    } elseif ($mode === 'compare') {
+        printComparison($report);
     } else {
         printReport($report);
     }

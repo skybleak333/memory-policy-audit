@@ -77,6 +77,16 @@ php bin/memory-audit replay --record=decision.json
 
 Replay uses the file and a local Relate executable. It recomputes the report from the saved inputs and exits with an error if the result differs. Associate the record with your application request in your audit log to track its origin.
 
+## Compare two decisions
+
+The [publication comparison](https://skybleak333.github.io/memory-policy-audit/?as-of=2026-11-05&compare-known-on=2026-11-05&known-on=2026-11-10&recall=stale) keeps the effective date and recall fixed. It shows the 21-day rule alongside the 14-day rule, their citations, and the date the correction became visible. Download either decision from the comparison panel.
+
+```sh
+php bin/memory-audit compare --before=before.json --after=after.json
+```
+
+The CLI replays both records with Relate before comparing them. It shows changes to policy wording and sources, newly visible or removed revisions, and the effective date and cutoff of each record. It also reports whether the catalog or the recalled IDs or their order changed. A visible publication may take effect later and leave the agent context unchanged. Use `--json` for structured output.
+
 ## Use the audit inside a Laravel AI agent
 
 Add both public Git repositories to your Laravel application's Composer configuration.
@@ -84,7 +94,7 @@ Add both public Git repositories to your Laravel application's Composer configur
 ```sh
 composer config repositories.memory-policy-audit git https://github.com/skybleak333/memory-policy-audit.git
 composer config repositories.hindsight-php git https://github.com/skybleak333/hindsight-php.git
-composer require fedoseev/memory-policy-audit:^0.7
+composer require fedoseev/memory-policy-audit:^0.8
 ```
 
 In an agent that implements `HasMiddleware`, give Hindsight's memory middleware an audit formatter. Use application-owned policy data and a bank populated with those documents.
@@ -116,7 +126,7 @@ The formatter uses today's UTC date unless you give it an `asOf` date. Give it `
 Add the same Composer repositories as in the Laravel example. The Symfony formatter was added in hindsight-php 0.16.
 
 ```sh
-composer require fedoseev/memory-policy-audit:^0.7 fedoseev/hindsight-php:^0.16 symfony/ai-agent:^0.15
+composer require fedoseev/memory-policy-audit:^0.8 fedoseev/hindsight-php:^0.16 symfony/ai-agent:^0.15
 ```
 
 Pass the formatter to `HindsightMemory` and register it with Symfony AI's `MemoryInputProcessor`. This example replays the policy applicable on November 5 using the revisions published up to that day.

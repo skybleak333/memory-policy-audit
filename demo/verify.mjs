@@ -23,7 +23,7 @@ const module = new URL('./node_modules/@relate/relate-wasm/relate_bg.wasm', impo
 await init({ module_or_path: await readFile(module) });
 
 let checked = 0;
-let exported;
+const exported = new Map();
 for (const [knownOn, dates] of [
     [null, ['2026-09-30', '2026-11-05', '2026-11-23', '2026-12-01']],
     ['2026-11-05', ['2026-11-05']],
@@ -43,9 +43,10 @@ for (const [knownOn, dates] of [
                 ];
                 const report = audit(db, successors, revisions, recall, date, knownOn);
                 assert.deepEqual(report, cli(...params, '--json'));
-                if (knownOn === '2026-11-05' && fixture === 'examples/stale-recall.json') {
-                    exported = captureDecision(revisions, recall, report);
-                    assert.deepEqual(exported, cli(...params, '--record'));
+                if (['2026-11-05', '2026-11-10'].includes(knownOn) && fixture === 'examples/stale-recall.json') {
+                    const record = captureDecision(revisions, recall, report);
+                    assert.deepEqual(record, cli(...params, '--record'));
+                    exported.set(knownOn, record);
                 }
                 checked++;
             }
@@ -55,15 +56,21 @@ for (const [knownOn, dates] of [
     }
 }
 
-assert.ok(exported);
+assert.equal(exported.size, 2);
 const replayDirectory = await mkdtemp(join(tmpdir(), 'memory-policy-replay-'));
 try {
-    const file = join(replayDirectory, 'decision.json');
-    await writeFile(file, JSON.stringify(exported));
-    assert.deepEqual(cli('replay', '--record=' + file, '--json'), exported.report);
+    for (const [knownOn, record] of exported) {
+        const file = join(replayDirectory, knownOn + '.json');
+        await writeFile(file, JSON.stringify(record));
+        assert.deepEqual(cli('replay', '--record=' + file, '--json'), record.report);
+    }
+    const difference = cli('compare', '--before=' + join(replayDirectory, '2026-11-05.json'), '--after=' + join(replayDirectory, '2026-11-10.json'), '--json');
+    assert.deepEqual(difference.newly_visible.map(revision => revision.id), ['annual-refunds-v3']);
+    assert.equal(difference.context_changes[0].before[0].citation, 'https://policies.example/refunds/annual/v2');
+    assert.equal(difference.context_changes[0].after[0].citation, 'https://policies.example/refunds/annual/v3');
 } finally {
     await rm(replayDirectory, { recursive: true, force: true });
 }
 
 console.log('Browser WASM and PHP CLI agree on ' + checked + ' date and recall combinations.');
-console.log('A browser decision record replays on the PHP CLI.');
+console.log('The PHP CLI replays and compares exported browser decisions.');

@@ -200,6 +200,26 @@ try {
     assert.deepEqual(record.recall.results.map(result => result.text), [null]);
     assert.equal(record.report.context[0].citation, 'https://policies.example/refunds/annual/v3');
     console.log('The browser downloads the decision for the current dates.');
+
+    await page.getByText('Compare publication cutoffs', { exact: true }).click();
+    await page.getByLabel('Comparison cutoff').fill('2026-11-05');
+    await page.locator('#comparison-sides').waitFor();
+    const comparison = page.locator('#comparison');
+    assert.match(await comparison.locator('.comparison-side').nth(0).textContent(), /21-day refund window.*\/v2/);
+    assert.match(await comparison.locator('.comparison-side').nth(1).textContent(), /14-day refund window.*\/v3/);
+    assert.match(await comparison.locator('#publication-changes').textContent(), /annual-refunds-v3, published Nov 10, effective Nov 1/);
+    for (const [name, cutoff] of [['Download comparison decision', '2026-11-05'], ['Download selected decision', '2026-11-10']]) {
+        const [snapshot] = await Promise.all([
+            page.waitForEvent('download'),
+            comparison.getByRole('button', { name }).click(),
+        ]);
+        const saved = JSON.parse(await readFile(await snapshot.path(), 'utf8'));
+        assert.equal(saved.report.known_on, cutoff);
+    }
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390);
+    await page.getByLabel('Comparison cutoff').fill('');
+    await comparison.waitFor({ state: 'hidden' });
+    console.log('The publication comparison shows both citations and exports the two decisions.');
 } finally {
     await browser?.close();
     for (const instance of [policy, caller]) instance?.server.close();

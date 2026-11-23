@@ -63,6 +63,17 @@ h1 { max-width: 56rem; margin: 0; font-size: clamp(2.6rem, 6vw, 5rem); line-heig
 .download-decision:hover:not(:disabled) { border-color: var(--accent); }
 .download-decision:disabled { opacity: 0.55; cursor: wait; }
 
+.comparison-options { width: fit-content; }
+.comparison { margin-bottom: 1rem; }
+.comparison h2 { margin: 0 0 0.8rem; font-size: 1.15rem; }
+.comparison-sides { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
+.comparison-side { padding: 0.85rem; border: 1px solid var(--line); border-radius: 0.45rem; }
+.comparison-side h3 { margin: 0 0 0.55rem; color: var(--muted); font-size: 0.9rem; }
+.comparison-side .fact { font-weight: 650; }
+.publication-changes { margin: 0.8rem 0 0; padding-left: 1.2rem; color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
+.publication-changes li { overflow-wrap: anywhere; }
+.comparison-downloads { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+
 .decisions { list-style: none; padding: 0; margin: 1rem 0 0; }
 .decision { padding: 0.75rem 0; border-top: 1px solid var(--line); }
 .decision:last-child { padding-bottom: 0; }
@@ -84,7 +95,7 @@ h1 { max-width: 56rem; margin: 0; font-size: clamp(2.6rem, 6vw, 5rem); line-heig
 
 @media (max-width: 44rem) {
     .shell { width: calc(100% - 2rem); }
-    .report { grid-template-columns: 1fr; }
+    .report, .comparison-sides { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 29rem) {
