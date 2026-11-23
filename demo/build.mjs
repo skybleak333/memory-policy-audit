@@ -1,4 +1,5 @@
 import { cp, mkdir } from 'node:fs/promises';
+import { buildAgentSite } from './build-agent-site.mjs';
 
 const dist = new URL('./dist/', import.meta.url);
 await mkdir(dist, { recursive: true });
@@ -18,3 +19,5 @@ for (const file of ['relate.js', 'relate_bg.wasm', 'snippets']) {
 for (const file of ['LICENSE', 'THIRDPARTY-NOTICES.md']) {
     await cp(new URL('licenses/' + file, import.meta.url), new URL('relate/' + file, dist));
 }
+
+await buildAgentSite(dist);

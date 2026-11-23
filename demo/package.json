@@ -4,9 +4,13 @@
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "test": "node verify.mjs"
+    "test": "node verify.mjs",
+    "test:agent-site": "node verify-agent-site.mjs"
   },
   "dependencies": {
     "@relate/relate-wasm": "1.2.0"
+  },
+  "devDependencies": {
+    "playwright-core": "1.65.1"
   }
 }

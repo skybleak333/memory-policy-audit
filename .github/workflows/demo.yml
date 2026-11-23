@@ -29,6 +29,8 @@ jobs:
           cache-dependency-path: demo/package-lock.json
       - run: npm --prefix demo ci --ignore-scripts --no-audit --no-fund
       - run: npm --prefix demo run build
+      - name: Check the published network in Chrome
+        run: npm --prefix demo run test:agent-site
       - uses: actions/upload-pages-artifact@v4
         with:
           path: demo/dist

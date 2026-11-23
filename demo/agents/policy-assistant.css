@@ -1,0 +1,31 @@
+.assistant {
+    margin-block: 0 2rem;
+}
+
+#agent-app {
+    --ns-font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --ns-bg: #141917;
+    --ns-fg: #eef1ed;
+    --ns-primary: #285747;
+    --ns-accent: #285747;
+    --ns-border: #3a453d;
+    --ns-panelbg: #1c231f;
+    --ns-msgbg: #25312a;
+    --ns-muted: #b2beb6;
+}
+
+#agent-app.ns-composed-app [data-ns-slot="chat"] {
+    height: clamp(24rem, 54vh, 36rem);
+}
+
+#agent-app .ns-anode {
+    background: var(--ns-msgbg);
+}
+
+#agent-app :is(.ns-key-help > a, .ns-key-providers a, .ns-openrouter-key a) {
+    color: var(--accent);
+}
+
+#agent-app .ns-hint.warn {
+    color: #ffccad;
+}

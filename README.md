@@ -115,6 +115,22 @@ For live lookup, remove `--demo` and set `POLICY_CATALOG` to the absolute path o
 
 The live tool is `lookup_policy`. It takes a `question` and an optional `as_of` date, which defaults to today in UTC. Both tools provide a structured report containing approved text and canonical citations in `context` and explanations in `decisions`. Clients that use text results get the same report as JSON. The server only exposes the configured bank and does not retain conversations.
 
+## Call the example from another agent website
+
+[Policy assistant](https://skybleak333.github.io/memory-policy-audit/agents/) publishes a two-agent [Open Agentic Web network](https://github.com/cognizant-ai-labs/agentic-web). In AI model settings, choose a provider that supports tool calls. Ask which refund window applied on 2026-11-23. The specialist calls the Relate graph and returns the approved excerpt and citation.
+
+Add `https://skybleak333.github.io/memory-policy-audit/agents/policy_audit` to the caller's tools and allow `https://skybleak333.github.io` in its peer policy. After visitor consent, the caller's browser loads the network and invokes the public read action through the action bridge. The action takes only a date and reads the same synthetic catalog as the graph demo. Inference uses the caller's configured provider.
+
+Run the interoperability check with local Chrome. It simulates model replies and checks the real browser runtime, action bridge and Relate WebAssembly. It verifies that declining consent sends no request to the policy site, and that accepting returns the current excerpt from the old recall fixture.
+
+```sh
+npm --prefix demo ci
+npm --prefix demo run build
+npm --prefix demo run test:agent-site
+```
+
+Pass the public network URL after `--` to test the deployed site. Use `CHROME_BIN` if Chrome is installed elsewhere. The build fetches a pinned revision of the reference runtime and verifies its checksum. The runtime and its Apache 2.0 license are included in the deployed browser bundle.
+
 ## How the audit decides
 
 Relate builds a local graph of revisions and walks incoming `SUPERSEDES` relationships. A revision is current when it has taken effect and is the only remaining version of its policy at that date. When two branches remain in effect, the audit marks both as conflicting until a later revision supersedes them. Memories from documents missing from the catalog are unverified.

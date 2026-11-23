@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Policy assistant | Memory Policy Audit</title>
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="stylesheet" href="assistant.css">
+    <link rel="stylesheet" href="policy-assistant.css">
+    <script type="module" src="site.js"></script>
+</head>
+<body>
+<main class="shell">
+    <header class="intro">
+        <h1>Policy assistant</h1>
+        <p>Ask which example refund policy applied on a date. The assistant checks Relate and cites the revision.</p>
+        <p>The chat sends your prompt to the provider you choose in <a href="#provider-settings">AI model settings</a>. The <a href="../?recall=stale">graph demo</a> works without a model or key.</p>
+    </header>
+    <section id="assistant" class="assistant" aria-label="Policy assistant">
+        <p id="assistant-status" role="status">Starting the policy assistant…</p>
+        <div id="agent-app">
+            <div data-ns-slot="header"></div>
+            <div class="assistant-panels">
+                <div data-ns-slot="chat"></div>
+                <div data-ns-slot="agents"></div>
+            </div>
+            <div id="provider-settings" data-ns-slot="settings"></div>
+        </div>
+    </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,58 @@
+{
+    "brand": "Memory Policy Audit",
+    "networks": [
+        {
+            "name": "policy_audit",
+            "front_man": "policy_assistant",
+            "hocon": "./policy_audit.network.json",
+            "description": "Find the annual plan refund policy that applied on a given date and cite its revision.",
+            "tags": ["policy", "provenance"],
+            "sample_queries": [
+                "What was the annual plan refund window on 2026-11-23?",
+                "Which refund policy applied on 2026-09-30?"
+            ]
+        }
+    ],
+    "llm_router": {
+        "base_url": "https://api.otari.ai/api/v1",
+        "mock": false,
+        "byok_router": "https://api.otari.ai/api/v1"
+    },
+    "allowed_peers": [],
+    "peer_policy": {"mode": "closed"},
+    "agent_mcp": {
+        "protocol": "nsdeploy-agent-mcp/v1",
+        "network": "policy_audit",
+        "front_man": "policy_assistant",
+        "available": false,
+        "reason": "This browser network shares its read action through the action bridge."
+    },
+    "theme": {"primary": "#285747"},
+    "linking": {
+        "protocol": "nsdeploy-link/v1",
+        "exports": [
+            {
+                "network": "policy_audit",
+                "front_man": "policy_assistant",
+                "aliases": ["policy_audit", "policy_assistant"],
+                "url": "policy_audit"
+            }
+        ],
+        "imports": [],
+        "link_updates": {"mode": "browser-local"}
+    },
+    "deployment": {
+        "mode": "static",
+        "self_contained_runtime": true,
+        "browser_mock": false,
+        "direct_byok": true,
+        "direct_mcp_requires_cors": true,
+        "public_mcp_facade": false
+    },
+    "actions": {
+        "version": 1,
+        "module": "./policy-action.js",
+        "bridge": "./bridge/action-bridge.html",
+        "agentTools": ["lookup_refund_policy"]
+    }
+}
