@@ -1,6 +1,7 @@
 const status = document.querySelector('#status');
 const report = document.querySelector('#report');
 const dates = document.querySelectorAll('input[name="as-of"]');
+const staleOnly = document.querySelector('#stale-only');
 const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 let request = 0;
 
@@ -14,11 +15,12 @@ const labels = {
 
 const formatDate = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 
-function show(date) {
+function show() {
+    const date = document.querySelector('input[name="as-of"]:checked').value;
     status.classList.remove('error');
     status.textContent = 'Checking the version graph…';
     report.setAttribute('aria-busy', 'true');
-    worker.postMessage({ date, request: ++request });
+    worker.postMessage({ date, staleOnly: staleOnly.checked, request: ++request });
 }
 
 function element(tag, text, className = '') {
@@ -33,6 +35,9 @@ function reason(decision) {
         case 'current':
             return 'This is the current source on the selected date.';
         case 'superseded':
+            if (decision.resolved_to) {
+                return 'Relate followed the version graph to ' + decision.resolved_to + '.';
+            }
             return 'Replaced by ' + decision.superseded_by.join(', ') + '.';
         case 'not_yet_effective':
             return 'Takes effect ' + formatDate.format(new Date(decision.effective_on)) + '.';
@@ -47,6 +52,11 @@ function display(data, catalog, recall, query) {
     const active = data.context[0];
     document.querySelector('#accepted-text').textContent = active?.text ?? 'No current sources.';
     document.querySelector('#citation').textContent = active?.citation ?? '';
+    const recovery = document.querySelector('#recovery');
+    recovery.hidden = !active?.recovered_from;
+    recovery.textContent = active?.recovered_from
+        ? 'Recovered the approved excerpt from the version graph starting at ' + active.recovered_from + '.'
+        : '';
     document.querySelector('#timeline').replaceChildren(...catalog.revisions.map(revision => {
         const item = element('li', revision.id.split('-').at(-1), active?.document_id === revision.id ? 'selected' : '');
         if (active?.document_id === revision.id) item.setAttribute('aria-current', 'true');
@@ -72,7 +82,8 @@ function display(data, catalog, recall, query) {
     document.querySelector('#query-panel').hidden = false;
     report.hidden = false;
     report.setAttribute('aria-busy', 'false');
-    status.textContent = 'Relate checked ' + data.decisions.length + ' recalled facts.';
+    const count = data.decisions.length;
+    status.textContent = 'Relate checked ' + count + (count === 1 ? ' recalled fact.' : ' recalled facts.');
 }
 
 function fail(message) {
@@ -93,5 +104,7 @@ worker.addEventListener('message', ({ data }) => {
 });
 
 worker.addEventListener('error', () => fail('The Relate worker could not load.'));
-for (const date of dates) date.addEventListener('change', () => show(date.value));
-show(document.querySelector('input[name="as-of"]:checked').value);
+for (const date of dates) date.addEventListener('change', show);
+staleOnly.addEventListener('change', show);
+staleOnly.checked = new URLSearchParams(window.location.search).get('recall') === 'stale';
+show();

@@ -28,7 +28,13 @@ final class Relate
         $parameters = $directory.'/revisions.json';
 
         try {
-            if (false === file_put_contents($parameters, json_encode(array_values($catalog->revisions), JSON_THROW_ON_ERROR))) {
+            $revisions = array_map(static fn (array $revision): array => [
+                'id' => $revision['id'],
+                'effective_on' => $revision['effective_on'],
+                'supersedes' => $revision['supersedes'],
+            ], array_values($catalog->revisions));
+
+            if (false === file_put_contents($parameters, json_encode($revisions, JSON_THROW_ON_ERROR))) {
                 throw new RuntimeException('Could not write the Relate query parameters.');
             }
 

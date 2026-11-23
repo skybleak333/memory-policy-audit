@@ -40,7 +40,9 @@ final class Audit
 
         $decisions = [];
         $context = [];
-        foreach ($recall['results'] as $result) {
+        $currentDocuments = [];
+        $recoverable = [];
+        foreach ($recall['results'] as $index => $result) {
             if (!is_array($result)) {
                 throw new InvalidArgumentException('Each recall result must be an object.');
             }
@@ -60,6 +62,7 @@ final class Audit
             ];
 
             if ($revision !== null) {
+                $policyTips = $tips[$revision['policy']] ?? [];
                 $decision += [
                     'policy' => $revision['policy'],
                     'effective_on' => $revision['effective_on'],
@@ -71,22 +74,51 @@ final class Audit
                 } elseif ($successors[$documentId] !== []) {
                     $decision['status'] = 'superseded';
                     $decision['superseded_by'] = $successors[$documentId];
-                } elseif (count($tips[$revision['policy']]) > 1) {
+
+                    if (count($policyTips) === 1 && in_array($policyTips[0], $successors[$documentId], true)) {
+                        $replacement = $catalog->revisions[$policyTips[0]];
+                        if ($replacement['excerpt'] !== null) {
+                            $recoverable[$index] = $replacement;
+                        }
+                    }
+                } elseif (count($policyTips) > 1) {
                     $decision['status'] = 'conflicting';
-                    $decision['current_revisions'] = $tips[$revision['policy']];
+                    $decision['current_revisions'] = $policyTips;
                 } else {
                     $decision['status'] = 'current';
-                    $context[] = [
-                        'text' => $text,
-                        'citation' => $revision['citation'],
-                        'document_id' => $documentId,
-                    ];
+                    if ($revision['excerpt'] === null || !isset($currentDocuments[$documentId])) {
+                        $context[$index] = [
+                            'text' => $revision['excerpt'] ?? $text,
+                            'citation' => $revision['citation'],
+                            'document_id' => $documentId,
+                        ];
+                    }
+                    $currentDocuments[$documentId] = true;
                 }
             }
 
             $decisions[] = $decision;
         }
 
-        return ['as_of' => $asOf, 'decisions' => $decisions, 'context' => $context];
+        // A directly recalled current source takes precedence. Substitute at most once per missing source.
+        foreach ($recoverable as $index => $replacement) {
+            $id = $replacement['id'];
+            if (isset($currentDocuments[$id])) {
+                continue;
+            }
+
+            $decisions[$index]['resolved_to'] = $id;
+            $context[$index] = [
+                'text' => $replacement['excerpt'],
+                'citation' => $replacement['citation'],
+                'document_id' => $id,
+                'recovered_from' => $decisions[$index]['document_id'],
+            ];
+            $currentDocuments[$id] = true;
+        }
+
+        ksort($context);
+
+        return ['as_of' => $asOf, 'decisions' => $decisions, 'context' => array_values($context)];
     }
 }

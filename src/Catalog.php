@@ -8,7 +8,7 @@ use InvalidArgumentException;
 
 final class Catalog
 {
-    /** @var array<string, array{id: string, policy: string, effective_on: string, citation: string, supersedes: list<string>}> */
+    /** @var array<string, array{id: string, policy: string, effective_on: string, citation: string, supersedes: list<string>, excerpt: ?string}> */
     public readonly array $revisions;
 
     public function __construct(array $data)
@@ -49,6 +49,7 @@ final class Catalog
                 'effective_on' => self::date(self::requiredString($record, 'effective_on')),
                 'citation' => $citation,
                 'supersedes' => array_values(array_unique($predecessors, SORT_STRING)),
+                'excerpt' => isset($record['excerpt']) ? self::requiredString($record, 'excerpt') : null,
             ];
         }
 

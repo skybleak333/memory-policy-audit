@@ -2,7 +2,7 @@
 
 Check the source of an agent's long-term memories before they reach the model. Hindsight retrieves relevant facts. Relate follows the revisions of their source documents and tells the agent which ones are in effect on the requested date.
 
-[Try the browser demo](https://skybleak333.github.io/memory-policy-audit/) and compare three dates. It runs the same Cypher as the PHP tool using Relate compiled to WebAssembly.
+[Try the browser demo](https://skybleak333.github.io/memory-policy-audit/) and compare three dates. Turn on **Recall only the oldest policy** to see Relate recover the approved excerpt from the current revision. The demo runs the same Cypher as the PHP tool in WebAssembly.
 
 In the demo, the highest-ranked memory says customers have 30 days to request a refund. The current policy says 14. The draft for next month says 7. The audit keeps the 14-day fact and cites the current document.
 
@@ -37,7 +37,7 @@ Publish your approved policy revisions as a catalog in the shape of [examples/po
 ```sh
 php bin/memory-audit audit \
   --catalog=examples/policies.json \
-  --recall=examples/recall.json \
+  --recall=examples/stale-recall.json \
   --as-of=2026-11-23 --json
 ```
 
@@ -60,7 +60,7 @@ Add both public Git repositories to your Laravel application's Composer configur
 ```sh
 composer config repositories.memory-policy-audit git https://github.com/skybleak333/memory-policy-audit.git
 composer config repositories.hindsight-php git https://github.com/skybleak333/hindsight-php.git
-composer require fedoseev/memory-policy-audit:^0.2
+composer require fedoseev/memory-policy-audit:^0.3
 ```
 
 In an agent that implements `HasMiddleware`, give Hindsight's memory middleware an audit formatter. Use application-owned policy data and a bank populated with those documents.
@@ -91,10 +91,12 @@ The formatter uses today's UTC date unless you give it an `asOf` date. It adds c
 
 Relate builds a local graph of revisions and walks incoming `SUPERSEDES` relationships. A revision is current when it has taken effect and is the only remaining version of its policy at that date. When two branches remain in effect, the audit marks both as conflicting until a later revision supersedes them. Memories from documents missing from the catalog are unverified.
 
+Set `excerpt` on a revision to supply its approved wording. When recall finds only a superseded revision, the audit checks for a single current version of that policy and follows the graph to it. It adds the approved excerpt and records the older revision in `recovered_from`. When recall already found the current revision, the excerpt takes precedence over the recalled wording and appears once in context. For revisions without an excerpt, the audit continues to accept recalled text from current sources.
+
 Keep the catalog under the control of whoever approves policy. The audit uses it to check the origin and effective date of a recalled fact. The citation lets the agent or its user read the original policy.
 
 ```sh
 php tests/audit.php
 ```
 
-The tests cover historical dates, transitive supersession and conflicting branches on a real Relate database. GitHub Actions also tests live recall and checks the prompt Laravel AI sends to a fake model, using a local Hindsight server.
+The tests cover historical dates, recovery from stale recall, and conflicting branches on a real Relate database. GitHub Actions also checks the Laravel AI prompt when a local Hindsight server holds only the older revision.

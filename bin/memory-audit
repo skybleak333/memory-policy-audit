@@ -100,6 +100,9 @@ function printReport(array $report): void
     }
     foreach ($report['context'] as $entry) {
         printf("  %s\n  %s\n", printable($entry['text']), printable($entry['citation']));
+        if (isset($entry['recovered_from'])) {
+            printf("  Recovered from %s\n", printable($entry['recovered_from']));
+        }
     }
 }
 

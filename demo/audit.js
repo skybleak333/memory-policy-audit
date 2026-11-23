@@ -1,5 +1,5 @@
 export function seed(db, queries, revisions) {
-    const params = { revisions: revisions.map(revision => ({ supersedes: [], ...revision })) };
+    const params = { revisions: revisions.map(({ id, effective_on, supersedes = [] }) => ({ id, effective_on, supersedes })) };
     execute(db, queries.nodes, params);
     execute(db, queries.edges, params);
 }
@@ -23,10 +23,13 @@ export function audit(db, statement, revisions, recall, date) {
 
     const decisions = [];
     const context = [];
-    for (const result of recall.results) {
+    const currentDocuments = new Set();
+    const recoverable = new Map();
+    for (const [index, result] of recall.results.entries()) {
         const revision = catalog.get(result.document_id);
         const decision = { memory_id: result.id, document_id: result.document_id ?? null, status: 'unverified' };
         if (revision) {
+            const policyTips = tips.get(revision.policy) ?? [];
             Object.assign(decision, {
                 policy: revision.policy,
                 effective_on: revision.effective_on,
@@ -37,18 +40,37 @@ export function audit(db, statement, revisions, recall, date) {
             } else if (successors.get(revision.id).length > 0) {
                 decision.status = 'superseded';
                 decision.superseded_by = successors.get(revision.id);
-            } else if (tips.get(revision.policy).length > 1) {
+                if (policyTips.length === 1 && decision.superseded_by.includes(policyTips[0])) {
+                    const replacement = catalog.get(policyTips[0]);
+                    if (replacement.excerpt != null) recoverable.set(index, replacement);
+                }
+            } else if (policyTips.length > 1) {
                 decision.status = 'conflicting';
-                decision.current_revisions = [...tips.get(revision.policy)].sort();
+                decision.current_revisions = [...policyTips].sort();
             } else {
                 decision.status = 'current';
-                context.push({ text: result.text, citation: revision.citation, document_id: revision.id });
+                if (revision.excerpt == null || !currentDocuments.has(revision.id)) {
+                    context[index] = { text: revision.excerpt ?? result.text, citation: revision.citation, document_id: revision.id };
+                }
+                currentDocuments.add(revision.id);
             }
         }
         decisions.push(decision);
     }
 
-    return { as_of: date, decisions, context };
+    for (const [index, replacement] of recoverable) {
+        if (currentDocuments.has(replacement.id)) continue;
+        decisions[index].resolved_to = replacement.id;
+        context[index] = {
+            text: replacement.excerpt,
+            citation: replacement.citation,
+            document_id: replacement.id,
+            recovered_from: decisions[index].document_id,
+        };
+        currentDocuments.add(replacement.id);
+    }
+
+    return { as_of: date, decisions, context: context.filter(Boolean) };
 }
 
 function execute(db, statement, params) {

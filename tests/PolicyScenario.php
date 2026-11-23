@@ -17,9 +17,10 @@ final class PolicyScenario
         return $url;
     }
 
-    public static function seed(Hindsight $client, string $bank): void
+    public static function seed(Hindsight $client, string $bank, bool $staleOnly = false): void
     {
-        $fixture = json_decode(file_get_contents(__DIR__.'/../examples/recall.json'), true, flags: JSON_THROW_ON_ERROR);
+        $file = $staleOnly ? 'stale-recall.json' : 'recall.json';
+        $fixture = json_decode(file_get_contents(__DIR__.'/../examples/'.$file), true, flags: JSON_THROW_ON_ERROR);
         $client->retainBatch($bank, array_map(static fn (array $entry): array => [
             'content' => $entry['text'],
             'document_id' => $entry['document_id'],

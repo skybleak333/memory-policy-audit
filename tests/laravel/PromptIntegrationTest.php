@@ -28,14 +28,14 @@ final class PromptIntegrationTest extends TestCase
         return [AiServiceProvider::class, HindsightServiceProvider::class];
     }
 
-    #[DataProvider('hindsightClients')]
-    public function test_the_agent_receives_only_the_current_fact_with_its_source(bool $live): void
+    #[DataProvider('recallScenarios')]
+    public function test_the_agent_receives_only_the_current_fact_with_its_source(bool $live, bool $staleOnly): void
     {
         $client = $live ? (new Hindsight(PolicyScenario::url()))->withTimeout(60) : new HindsightFake;
         $bank = 'memory-policy-laravel-'.bin2hex(random_bytes(8));
 
         try {
-            PolicyScenario::seed($client, $bank);
+            PolicyScenario::seed($client, $bank, $staleOnly);
             $catalog = json_decode(file_get_contents(__DIR__.'/../../examples/policies.json'), true, flags: JSON_THROW_ON_ERROR);
             $recallContext = new RecallContext(
                 new Catalog($catalog),
@@ -69,9 +69,14 @@ final class PromptIntegrationTest extends TestCase
         }
     }
 
-    public static function hindsightClients(): array
+    public static function recallScenarios(): array
     {
-        return ['in-memory Hindsight' => [false], 'live Hindsight' => [true]];
+        return [
+            'in-memory Hindsight with current recall' => [false, false],
+            'in-memory Hindsight with only stale recall' => [false, true],
+            'live Hindsight with current recall' => [true, false],
+            'live Hindsight with only stale recall' => [true, true],
+        ];
     }
 }
 

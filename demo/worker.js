@@ -3,10 +3,10 @@ import { audit, seed } from './audit.js';
 
 const ready = (async () => {
     const files = [
-        'examples/policies.json', 'examples/recall.json',
+        'examples/policies.json', 'examples/recall.json', 'examples/stale-recall.json',
         'queries/create-revisions.cypher', 'queries/create-edges.cypher', 'queries/successors.cypher',
     ];
-    const [catalog, recall, nodes, edges, successors] = await Promise.all(
+    const [catalog, fullRecall, staleRecall, nodes, edges, successors] = await Promise.all(
         files.map(async file => {
             const response = await fetch(new URL(file, import.meta.url));
             if (!response.ok) throw new Error('Could not load ' + file);
@@ -16,12 +16,13 @@ const ready = (async () => {
     await init();
     const db = new RelateDb();
     seed(db, { nodes, edges }, catalog.revisions);
-    return { db, catalog, recall, successors };
+    return { db, catalog, fullRecall, staleRecall, successors };
 })();
 
-self.addEventListener('message', async ({ data: { date, request } }) => {
+self.addEventListener('message', async ({ data: { date, staleOnly, request } }) => {
     try {
-        const { db, catalog, recall, successors } = await ready;
+        const { db, catalog, fullRecall, staleRecall, successors } = await ready;
+        const recall = staleOnly ? staleRecall : fullRecall;
         const report = audit(db, successors, catalog.revisions, recall, date);
         self.postMessage({ request, report, catalog, recall, query: successors });
     } catch (error) {

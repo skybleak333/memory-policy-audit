@@ -31,6 +31,11 @@
             </div>
         </fieldset>
 
+        <label class="recall-toggle">
+            <input id="stale-only" type="checkbox">
+            Recall only the oldest policy
+        </label>
+
         <p id="status" class="runtime" role="status">Starting Relate in your browser…</p>
 
         <div id="report" class="report" hidden>
@@ -38,6 +43,7 @@
                 <h2 id="context-title">Context for the agent</h2>
                 <p id="accepted-text" class="accepted-text" aria-live="polite"></p>
                 <p id="citation" class="citation"></p>
+                <p id="recovery" class="recovery" hidden></p>
                 <ol id="timeline" class="timeline" aria-label="Version history"></ol>
             </section>
 

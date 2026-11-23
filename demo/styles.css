@@ -36,6 +36,8 @@ h1 { max-width: 56rem; margin: 0; font-size: clamp(2.6rem, 6vw, 5rem); line-heig
 .date-options label:hover span { background: #28332b; }
 .date-options input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
 .date-options input:checked + span { color: #1b2814; background: var(--accent); }
+.recall-toggle { display: flex; align-items: center; gap: 0.55rem; width: fit-content; min-height: 2.75rem; margin-top: 0.45rem; cursor: pointer; }
+.recall-toggle input { width: 1.1rem; height: 1.1rem; margin: 0; accent-color: var(--accent); }
 
 .runtime { min-height: 1.4em; margin: 0.75rem 0; color: var(--muted); font-size: 0.85rem; line-height: 1.4; }
 .runtime.error { color: #ffb8a6; }
@@ -45,6 +47,7 @@ h1 { max-width: 56rem; margin: 0; font-size: clamp(2.6rem, 6vw, 5rem); line-heig
 .context h2 { color: var(--accent); }
 .accepted-text { min-height: 2em; margin: 1rem 0 0.8rem; font-size: clamp(1.5rem, 3vw, 2.55rem); line-height: 1.14; letter-spacing: -0.035em; font-weight: 710; text-wrap: balance; }
 .citation { margin: 0; color: var(--muted); font: 0.88rem/1.4 ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
+.recovery { margin: 0.8rem 0 0; color: var(--accent); font-size: 0.88rem; line-height: 1.4; }
 
 .timeline { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 1.75rem 0 0; padding: 0; list-style: none; }
 .timeline li { position: relative; border-top: 2px solid var(--line); padding: 0.65rem 0.35rem 0 0; color: var(--muted); font-size: 0.82rem; line-height: 1.35; }

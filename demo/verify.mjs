@@ -8,7 +8,6 @@ import { audit, seed } from './audit.js';
 const root = new URL('../', import.meta.url);
 const read = file => readFile(new URL(file, root), 'utf8');
 const { revisions } = JSON.parse(await read('examples/policies.json'));
-const recall = JSON.parse(await read('examples/recall.json'));
 const [nodes, edges, successors] = await Promise.all(
     ['create-revisions', 'create-edges', 'successors'].map(file => read('queries/' + file + '.cypher')),
 );
@@ -20,15 +19,21 @@ await init({ module_or_path: await readFile(module) });
 const db = new RelateDb();
 try {
     seed(db, { nodes, edges }, revisions);
-    for (const date of ['2026-09-30', '2026-11-23', '2026-12-01']) {
-        const php = execFileSync('php', ['bin/memory-audit', 'demo', '--as-of=' + date, '--relate=' + binary, '--json'], {
-            cwd: fileURLToPath(root),
-            encoding: 'utf8',
-        });
-        assert.deepEqual(audit(db, successors, revisions, recall, date), JSON.parse(php));
+    for (const fixture of ['examples/recall.json', 'examples/stale-recall.json']) {
+        const recall = JSON.parse(await read(fixture));
+        for (const date of ['2026-09-30', '2026-11-23', '2026-12-01']) {
+            const php = execFileSync('php', [
+                'bin/memory-audit', 'audit', '--catalog=examples/policies.json', '--recall=' + fixture,
+                '--as-of=' + date, '--relate=' + binary, '--json',
+            ], {
+                cwd: fileURLToPath(root),
+                encoding: 'utf8',
+            });
+            assert.deepEqual(audit(db, successors, revisions, recall, date), JSON.parse(php));
+        }
     }
 } finally {
     db.free();
 }
 
-console.log('Browser WASM and PHP CLI agree on all three demo dates.');
+console.log('Browser WASM and PHP CLI agree on six date and recall combinations.');
