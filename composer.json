@@ -2,13 +2,16 @@
     "name": "fedoseev/memory-policy-audit",
     "description": "Check versioned source documents before passing Hindsight recall results to an agent.",
     "license": "MIT",
-    "type": "project",
+    "type": "library",
     "repositories": [
         {"type": "vcs", "url": "https://github.com/skybleak333/hindsight-php.git"}
     ],
     "require": {
         "php": "^8.2",
-        "fedoseev/hindsight-php": "^0.14"
+        "fedoseev/hindsight-php": "^0.15"
+    },
+    "autoload": {
+        "psr-4": {"MemoryPolicyAudit\\": "src/"}
     },
     "config": {
         "platform": {"php": "8.2.0"},

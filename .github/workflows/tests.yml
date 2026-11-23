@@ -83,6 +83,15 @@ jobs:
           composer install --no-interaction --no-progress --prefer-dist
           php tests/live.php "$RUNNER_TEMP/relate"
 
+      - name: Verify the actual Laravel AI prompt with audited memory
+        if: matrix.php == '8.4'
+        env:
+          HINDSIGHT_URL: http://127.0.0.1:8888
+        run: |
+          composer --working-dir=tests/laravel install --no-interaction --no-progress --prefer-dist
+          RELATE_BIN="$RUNNER_TEMP/relate" tests/laravel/vendor/bin/phpunit --no-configuration \
+            --bootstrap tests/laravel/vendor/autoload.php tests/laravel/PromptIntegrationTest.php
+
       - name: Print the server log on failure
         if: failure() && matrix.php == '8.4'
         run: |

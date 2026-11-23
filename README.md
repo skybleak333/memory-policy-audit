@@ -53,6 +53,40 @@ HINDSIGHT_URL=http://127.0.0.1:8888 php bin/memory-audit audit \
 
 Set `HINDSIGHT_API_KEY` when the server requires authentication. The live mode uses [hindsight-php](https://github.com/skybleak333/hindsight-php) to look up memories in the existing bank. The demo uses synthetic memory and policy data.
 
+## Use the audit inside a Laravel AI agent
+
+Add both VCS repositories to your Laravel application's Composer configuration.
+
+```sh
+composer config repositories.memory-policy-audit vcs https://github.com/skybleak333/memory-policy-audit.git
+composer config repositories.hindsight-php vcs https://github.com/skybleak333/hindsight-php.git
+composer require fedoseev/memory-policy-audit:^0.2
+```
+
+In an agent that implements `HasMiddleware`, give Hindsight's memory middleware an audit formatter. Use application-owned policy data and a bank populated with those documents.
+
+```php
+use Fedoseev\Hindsight\Laravel\Ai\Memory;
+use MemoryPolicyAudit\Audit;
+use MemoryPolicyAudit\Catalog;
+use MemoryPolicyAudit\RecallContext;
+use MemoryPolicyAudit\Relate;
+
+public function middleware(): array
+{
+    $policies = json_decode(file_get_contents(resource_path('policies.json')), true, flags: JSON_THROW_ON_ERROR);
+    $context = new RecallContext(new Catalog($policies), new Audit(new Relate()));
+
+    return [
+        Memory::bank('support-policies')
+            ->withoutRetain()
+            ->formatRecallUsing($context(...)),
+    ];
+}
+```
+
+The formatter uses today's UTC date unless you give it an `asOf` date. It adds citations for accepted facts before the first model call. If all recalled sources are excluded, the agent receives no memory block. An audit error propagates to the caller.
+
 ## How the audit decides
 
 Relate builds a local graph of revisions and walks incoming `SUPERSEDES` relationships. A revision is current when it has taken effect and is the only remaining version of its policy at that date. When two branches remain in effect, the audit marks both as conflicting until a later revision supersedes them. Memories from documents missing from the catalog are unverified.
@@ -63,4 +97,4 @@ Keep the catalog under the control of whoever approves policy. The audit uses it
 php tests/audit.php
 ```
 
-The tests cover historical dates, transitive supersession and conflicting branches on a real Relate database. The GitHub Actions workflow also tests live recall with a local Hindsight server and no model API key.
+The tests cover historical dates, transitive supersession and conflicting branches on a real Relate database. GitHub Actions also tests live recall and checks the prompt Laravel AI sends to a fake model, using a local Hindsight server.

@@ -6,23 +6,15 @@ use Fedoseev\Hindsight\Exceptions\NotFoundException;
 use Fedoseev\Hindsight\Hindsight;
 
 require __DIR__.'/../vendor/autoload.php';
+require __DIR__.'/PolicyScenario.php';
 
-$url = getenv('HINDSIGHT_URL') ?: 'http://127.0.0.1:8888';
-$host = trim((string) parse_url($url, PHP_URL_HOST), '[]');
-if (!in_array($host, ['127.0.0.1', '::1', 'localhost'], true)) {
-    throw new RuntimeException('The live test writes to a disposable bank and requires a loopback Hindsight server.');
-}
+$url = PolicyScenario::url();
 
 $hindsight = (new Hindsight($url))->withTimeout(60);
 $bank = 'memory-policy-audit-'.bin2hex(random_bytes(8));
-$fixture = json_decode(file_get_contents(__DIR__.'/../examples/recall.json'), true, flags: JSON_THROW_ON_ERROR);
 
 try {
-    $hindsight->retainBatch($bank, array_map(static fn (array $entry): array => [
-        'content' => $entry['text'],
-        'document_id' => $entry['document_id'],
-        'timestamp' => '2026-11-20T12:00:00Z',
-    ], $fixture['results']));
+    PolicyScenario::seed($hindsight, $bank);
 
     $relate = $argv[1] ?? 'relate';
     $command = [

@@ -1,0 +1,20 @@
+{
+    "name": "fedoseev/memory-policy-audit-laravel-tests",
+    "description": "Laravel AI integration tests for Memory Policy Audit.",
+    "license": "MIT",
+    "type": "project",
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../..",
+            "options": {"versions": {"fedoseev/memory-policy-audit": "dev-main"}}
+        },
+        {"type": "vcs", "url": "https://github.com/skybleak333/hindsight-php.git"}
+    ],
+    "require-dev": {
+        "fedoseev/memory-policy-audit": "dev-main",
+        "laravel/ai": "^1.0",
+        "orchestra/testbench": "^10.0 || ^11.0",
+        "phpunit/phpunit": "^11.5 || ^12.0"
+    }
+}

@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c410970e7daceb0e0140471c287d078f",
+    "content-hash": "f1c9d80d5c64bfa3377c10fd8195483b",
     "packages": [
         {
             "name": "fedoseev/hindsight-php",
-            "version": "v0.14.0",
+            "version": "v0.15.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/skybleak333/hindsight-php.git",
-                "reference": "58a57a0409efcb0ce1e6ac5bd2434463cb9b0d43"
+                "reference": "769a36c0ce80efd41d87f1cb27d492195d970175"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/skybleak333/hindsight-php/zipball/58a57a0409efcb0ce1e6ac5bd2434463cb9b0d43",
-                "reference": "58a57a0409efcb0ce1e6ac5bd2434463cb9b0d43",
+                "url": "https://api.github.com/repos/skybleak333/hindsight-php/zipball/769a36c0ce80efd41d87f1cb27d492195d970175",
+                "reference": "769a36c0ce80efd41d87f1cb27d492195d970175",
                 "shasum": ""
             },
             "require": {
@@ -106,10 +106,10 @@
                 "symfony-ai"
             ],
             "support": {
-                "source": "https://github.com/skybleak333/hindsight-php/tree/v0.14.0",
+                "source": "https://github.com/skybleak333/hindsight-php/tree/v0.15.0",
                 "issues": "https://github.com/skybleak333/hindsight-php/issues"
             },
-            "time": "2026-11-23T11:47:30+00:00"
+            "time": "2026-11-23T12:34:58+00:00"
         },
         {
             "name": "guzzlehttp/guzzle",

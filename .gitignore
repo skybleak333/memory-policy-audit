@@ -2,4 +2,6 @@
 /.env
 /demo/dist/
 /demo/node_modules/
+/tests/laravel/vendor/
+/tests/laravel/composer.lock
 .DS_Store
