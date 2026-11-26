@@ -8,6 +8,9 @@ const compareKnownOn = document.querySelector('#compare-known-on');
 const comparison = document.querySelector('#comparison');
 const staleOnly = document.querySelector('#stale-only');
 const downloadButton = document.querySelector('#download-decision');
+const evalButton = document.querySelector('#run-evaluation');
+const evalStatus = document.querySelector('#evaluation-status');
+const evalResults = document.querySelector('#evaluation-results');
 const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 let request = 0;
 let decisionRecord;
@@ -154,7 +157,49 @@ function displayComparison() {
     document.querySelector('#publication-changes').replaceChildren(...changes);
 }
 
+function displayEvaluation(evaluation, error) {
+    evalButton.disabled = false;
+    evalStatus.classList.toggle('error', Boolean(error || evaluation?.failed));
+    if (error) {
+        evalStatus.textContent = 'Could not run the evaluation. ' + error;
+        return;
+    }
+    evalStatus.textContent = evaluation.passed + ' passed, ' + evaluation.failed + ' failed.';
+    evalResults.replaceChildren(...evaluation.cases.map(({ id, passed, differences, report }) => {
+        const item = element('li', '', 'decision');
+        const header = document.createElement('header');
+        const title = id[0].toUpperCase() + id.slice(1).replaceAll('-', ' ');
+        header.append(element('span', passed ? 'Pass' : 'Fail', 'label ' + (passed ? 'current' : 'conflicting')),
+            element('h3', title));
+        const dates = element('p', 'Effective ', 'reason');
+        const effective = element('time', report.as_of);
+        effective.dateTime = report.as_of;
+        dates.append(effective);
+        if (report.known_on) {
+            const published = element('time', report.known_on);
+            published.dateTime = report.known_on;
+            dates.append(' · Published by ', published);
+        }
+        item.append(header, dates);
+        if (report.context.length === 0) item.append(element('p', 'No policy sent to the agent.', 'fact'));
+        for (const entry of report.context) {
+            item.append(element('p', entry.text, 'fact'), element('p', entry.citation, 'citation'));
+        }
+        for (const { field, expected, actual } of differences) {
+            const detail = document.createElement('details');
+            detail.append(element('summary', 'Mismatch in ' + field),
+                element('pre', 'Expected ' + JSON.stringify(expected, null, 2) + '\nActual ' + JSON.stringify(actual, null, 2)));
+            item.append(detail);
+        }
+        return item;
+    }));
+}
+
 worker.addEventListener('message', ({ data }) => {
+    if (data.request.side === 'evaluation') {
+        displayEvaluation(data.evaluation, data.error);
+        return;
+    }
     if (data.request.id !== request) return;
     if (data.request.side === 'comparison') {
         comparisonError = data.error;
@@ -187,7 +232,20 @@ downloadButton.addEventListener('click', () => downloadRecord(decisionRecord));
 document.querySelector('#download-comparison').addEventListener('click', () => downloadRecord(comparisonRecord));
 document.querySelector('#download-selected').addEventListener('click', () => downloadRecord(decisionRecord));
 
-worker.addEventListener('error', () => fail('The Relate worker could not load.'));
+evalButton.addEventListener('click', () => {
+    evalButton.disabled = true;
+    evalStatus.classList.remove('error');
+    evalStatus.textContent = 'Checking the dataset…';
+    evalResults.replaceChildren();
+    worker.postMessage({ request: { side: 'evaluation' } });
+});
+
+worker.addEventListener('error', () => {
+    const error = 'The Relate worker could not load.';
+    fail(error);
+    displayEvaluation(null, error);
+    evalButton.disabled = true;
+});
 for (const date of dates) date.addEventListener('change', show);
 knownOn.addEventListener('change', show);
 compareKnownOn.addEventListener('change', show);

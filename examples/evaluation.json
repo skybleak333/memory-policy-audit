@@ -1,0 +1,104 @@
+{
+    "catalog": "policies.json",
+    "cases": [
+        {
+            "id": "ignore-unverified-and-future-recall",
+            "recall": "recall.json",
+            "as_of": "2026-11-23",
+            "expect": {
+                "statuses": ["superseded", "unverified", "not_yet_effective", "current"],
+                "context": [
+                    {
+                        "document_id": "annual-refunds-v3",
+                        "text": "Annual plans have a 14-day refund window.",
+                        "citation": "https://policies.example/refunds/annual/v3"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "recover-from-old-recall",
+            "recall": "stale-recall.json",
+            "as_of": "2026-11-23",
+            "expect": {
+                "statuses": ["superseded"],
+                "context": [
+                    {
+                        "document_id": "annual-refunds-v3",
+                        "text": "Annual plans have a 14-day refund window.",
+                        "citation": "https://policies.example/refunds/annual/v3",
+                        "recovered_from": "annual-refunds-v1"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "use-only-published-catalog",
+            "recall": "recall.json",
+            "as_of": "2026-11-05",
+            "known_on": "2026-11-05",
+            "expect": {
+                "statuses": ["superseded", "unverified", "not_yet_published", "not_yet_published"],
+                "context": [
+                    {
+                        "document_id": "annual-refunds-v2",
+                        "text": "Annual plans have a 21-day refund window.",
+                        "citation": "https://policies.example/refunds/annual/v2",
+                        "recovered_from": "annual-refunds-v1"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "apply-a-backdated-correction",
+            "recall": "stale-recall.json",
+            "as_of": "2026-11-05",
+            "known_on": "2026-11-10",
+            "expect": {
+                "statuses": ["superseded"],
+                "context": [
+                    {
+                        "document_id": "annual-refunds-v3",
+                        "text": "Annual plans have a 14-day refund window.",
+                        "citation": "https://policies.example/refunds/annual/v3",
+                        "recovered_from": "annual-refunds-v1"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "reject-memory-before-the-first-policy",
+            "recall": "stale-recall.json",
+            "as_of": "2026-08-31",
+            "expect": {
+                "statuses": ["not_yet_effective"],
+                "context": []
+            }
+        },
+        {
+            "id": "refuse-conflicting-revisions",
+            "catalog": "evaluation-cases/conflicting-policies.json",
+            "recall": "recall.json",
+            "as_of": "2026-12-01",
+            "expect": {
+                "statuses": ["superseded", "unverified", "conflicting", "conflicting"],
+                "context": []
+            }
+        },
+        {
+            "id": "use-approved-excerpt",
+            "recall": "evaluation-cases/inaccurate-recall.json",
+            "as_of": "2026-11-23",
+            "expect": {
+                "statuses": ["current"],
+                "context": [
+                    {
+                        "document_id": "annual-refunds-v3",
+                        "text": "Annual plans have a 14-day refund window.",
+                        "citation": "https://policies.example/refunds/annual/v3"
+                    }
+                ]
+            }
+        }
+    ]
+}

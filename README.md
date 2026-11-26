@@ -4,6 +4,8 @@ Check the source of an agent's long-term memories before they reach the model. H
 
 [Try the browser demo](https://skybleak333.github.io/memory-policy-audit/). Turn on **Recall only the oldest policy** to see Relate recover an approved excerpt from the version graph. The demo runs the same Cypher as the PHP tool in WebAssembly.
 
+Run the [browser evaluation](https://skybleak333.github.io/memory-policy-audit/#evaluation) to inspect the text and citations an agent would receive from seven saved recall cases. Use the [same dataset in CI](#evaluate-policy-decisions-in-ci).
+
 In the demo, the highest-ranked memory says customers have 30 days to request a refund. The current policy says 14. The draft for next month says 7. The audit keeps the 14-day fact and cites the current document.
 
 ```text
@@ -29,6 +31,18 @@ php bin/memory-audit demo --as-of=2026-09-30 --json
 ```
 
 Use `--relate=/path/to/relate` if the binary is outside your PATH. In JSON mode, `context` contains the facts and citations to give the agent. `decisions` records what happened to every recalled fact. The order of accepted facts follows the original recall ranking.
+
+## Evaluate policy decisions in CI
+
+Run the included dataset with PHP and Relate. It checks stale recall, corrections published after the effective date, conflicting policies and recalled text that disagrees with the approved excerpt.
+
+```sh
+php bin/memory-audit eval --dataset=examples/evaluation.json
+```
+
+For your own dataset, copy [examples/evaluation.json](examples/evaluation.json). Set `catalog` to your revision catalog and give each case an `id`, a saved `recall` response, an `as_of` date and optionally `known_on`. A case can override `catalog`. File paths are relative to the dataset. Write the expected `statuses` in recall order and the exact expected `context`, including document IDs, text, citations and `recovered_from` where applicable. Use an empty context for a case where the agent should receive no policy.
+
+The command runs every case and prints the expected and actual values for each mismatch. Use `--json` for the same results in a machine-readable report. The exit code is 0 when all cases pass, 2 when any expectation differs and 1 when the dataset or audit cannot run. The evaluation uses the saved inputs and needs no Hindsight server or model key.
 
 ## Audit your own recall
 

@@ -46,6 +46,11 @@ jobs:
           php tests/audit.php "$RUNNER_TEMP/relate"
           php bin/memory-audit demo --relate="$RUNNER_TEMP/relate"
 
+      - name: Evaluate policy decisions and verify the regression exit code
+        run: |
+          php bin/memory-audit eval --dataset=examples/evaluation.json --relate="$RUNNER_TEMP/relate"
+          php tests/evaluation.php "$RUNNER_TEMP/relate"
+
       - name: Verify the MCP server with saved recall
         run: |
           composer --working-dir=mcp install --no-interaction --no-progress --prefer-dist

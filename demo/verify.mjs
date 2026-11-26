@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import init, { RelateDb } from '@relate/relate-wasm';
 import { audit, captureDecision, seed } from './audit.js';
+import { evaluateDataset } from './evaluation.js';
 
 const root = new URL('../', import.meta.url);
 const read = file => readFile(new URL(file, root), 'utf8');
@@ -74,3 +75,24 @@ try {
 
 console.log('Browser WASM and PHP CLI agree on ' + checked + ' date and recall combinations.');
 console.log('The PHP CLI replays and compares exported browser decisions.');
+
+const dataset = JSON.parse(await read('examples/evaluation.json'));
+const evaluation = await evaluateDataset(
+    dataset,
+    async file => JSON.parse(await read('examples/' + file)),
+    ({ revisions }, recall, date, knownOn) => {
+        const db = new RelateDb();
+        try {
+            seed(db, { nodes, edges }, revisions, knownOn);
+            return audit(db, successors, revisions, recall, date, knownOn);
+        } finally {
+            db.free();
+        }
+    },
+);
+assert.equal(evaluation.failed, 0);
+assert.deepEqual(
+    { ...evaluation, cases: evaluation.cases.map(({ id, passed, differences }) => ({ id, passed, differences })) },
+    cli('eval', '--dataset=examples/evaluation.json', '--json'),
+);
+console.log('Browser WASM and PHP CLI pass the same ' + evaluation.passed + ' evaluation cases.');

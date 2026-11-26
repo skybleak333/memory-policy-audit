@@ -55,3 +55,10 @@ jobs:
           curl --fail --silent --show-error --retry 3 --retry-all-errors \
             "${SITE_URL%/}/agents/.well-known/nsdeploy.json?commit=$GITHUB_SHA" \
             | jq -e 'any(.exports[]; .network == "policy_audit")'
+      - name: Verify the public evaluation dataset
+        env:
+          SITE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          curl --fail --silent --show-error --retry 3 --retry-all-errors \
+            "${SITE_URL%/}/examples/evaluation.json?commit=$GITHUB_SHA" \
+            | jq -e '(.cases | length) == 7'

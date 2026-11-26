@@ -22,6 +22,7 @@ const USAGE = <<<'TEXT'
     php bin/memory-audit audit --catalog=FILE --bank=BANK --query=QUESTION [--as-of=YYYY-MM-DD] [--known-on=YYYY-MM-DD] [--json | --record]
     php bin/memory-audit replay --record=FILE [--json]
     php bin/memory-audit compare --before=FILE --after=FILE [--json]
+    php bin/memory-audit eval --dataset=FILE [--json]
 
     --as-of selects the effective date. --known-on limits the catalog to published revisions.
     --record writes a replayable decision record to stdout in audit and demo mode.
@@ -184,6 +185,99 @@ function printComparison(array $comparison): void
     }
 }
 
+/** Sort object keys without changing the order of sources supplied to the agent. */
+function evaluationContext(array $entries): array
+{
+    foreach ($entries as &$entry) {
+        if (!is_array($entry) || array_is_list($entry)) {
+            throw new InvalidArgumentException('Each expected context entry must be an object.');
+        }
+        ksort($entry, SORT_STRING);
+    }
+    unset($entry);
+
+    return $entries;
+}
+
+function evaluateDataset(Audit $audit, string $file): array
+{
+    $dataset = readJson($file);
+    $directory = dirname($file);
+    $defaultCatalog = Catalog::requiredString($dataset, 'catalog');
+    $cases = $dataset['cases'] ?? null;
+    if (!is_array($cases) || !array_is_list($cases) || $cases === []) {
+        throw new InvalidArgumentException('The dataset needs a non-empty cases list.');
+    }
+
+    $results = [];
+    $catalogs = [];
+    $failed = 0;
+    foreach ($cases as $case) {
+        if (!is_array($case)) {
+            throw new InvalidArgumentException('Each evaluation case must be an object.');
+        }
+        $id = Catalog::requiredString($case, 'id');
+        if (isset($results[$id])) {
+            throw new InvalidArgumentException("Duplicate evaluation case ID: {$id}.");
+        }
+
+        try {
+            $catalogFile = array_key_exists('catalog', $case) ? Catalog::requiredString($case, 'catalog') : $defaultCatalog;
+            $catalog = $catalogs[$catalogFile] ??= new Catalog(readJson($directory.'/'.$catalogFile));
+            $recall = readJson($directory.'/'.Catalog::requiredString($case, 'recall'));
+            $asOf = Catalog::requiredString($case, 'as_of');
+            $knownOn = array_key_exists('known_on', $case) ? Catalog::requiredString($case, 'known_on') : null;
+            $expected = $case['expect'] ?? null;
+            foreach (['statuses', 'context'] as $key) {
+                if (!is_array($expected[$key] ?? null) || !array_is_list($expected[$key])) {
+                    throw new InvalidArgumentException("Expected {$key} must be a list.");
+                }
+            }
+            $expected['context'] = evaluationContext($expected['context']);
+
+            $report = $audit->run($catalog, $recall, $asOf, $knownOn);
+            $actual = [
+                'statuses' => array_column($report['decisions'], 'status'),
+                'context' => evaluationContext($report['context']),
+            ];
+            $differences = [];
+            foreach ($actual as $key => $value) {
+                if ($expected[$key] !== $value) {
+                    $differences[] = ['field' => $key, 'expected' => $expected[$key], 'actual' => $value];
+                }
+            }
+        } catch (InvalidArgumentException|RuntimeException|JsonException $error) {
+            throw new RuntimeException("Case {$id}: ".$error->getMessage(), previous: $error);
+        }
+
+        $passed = $differences === [];
+        if (!$passed) {
+            $failed++;
+        }
+        $results[$id] = ['id' => $id, 'passed' => $passed, 'differences' => $differences];
+    }
+
+    return [
+        'passed' => count($results) - $failed,
+        'failed' => $failed,
+        'cases' => array_values($results),
+    ];
+}
+
+function printEvaluation(array $evaluation): void
+{
+    foreach ($evaluation['cases'] as $case) {
+        printf("%s %s\n", $case['passed'] ? 'PASS' : 'FAIL', printable($case['id']));
+        foreach ($case['differences'] as $difference) {
+            printf("  %s\n", $difference['field']);
+            foreach (['expected', 'actual'] as $label) {
+                printf("    %s %s\n", $label, json_encode($difference[$label], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+            }
+        }
+    }
+    printf("\n%d passed, %d failed\n", $evaluation['passed'], $evaluation['failed']);
+}
+
 try {
     $mode = $argv[1] ?? '--help';
     if ($mode === '--help' || in_array('--help', array_slice($argv, 2), true)) {
@@ -196,11 +290,25 @@ try {
         'audit' => ['as-of', 'known-on', 'catalog', 'recall', 'bank', 'query'],
         'replay' => ['record'],
         'compare' => ['before', 'after'],
+        'eval' => ['dataset'],
         default => throw new InvalidArgumentException("Unknown command: {$mode}"),
     };
     $flags = in_array($mode, ['demo', 'audit'], true) ? ['--json', '--record'] : ['--json'];
     $options = parseOptions(array_slice($argv, 2), ['relate', ...$allowed], $flags);
     $audit = new Audit(new Relate($options['relate'] ?? 'relate'));
+
+    if ($mode === 'eval') {
+        if (!isset($options['dataset'])) {
+            throw new InvalidArgumentException('Provide an evaluation dataset with --dataset=FILE.');
+        }
+        $evaluation = evaluateDataset($audit, $options['dataset']);
+        if (isset($options['json'])) {
+            echo json_encode($evaluation, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+        } else {
+            printEvaluation($evaluation);
+        }
+        exit($evaluation['failed'] === 0 ? 0 : 2);
+    }
 
     if ($mode === 'compare') {
         if (!isset($options['before'], $options['after'])) {

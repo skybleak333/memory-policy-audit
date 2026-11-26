@@ -4,7 +4,7 @@ import { buildAgentSite } from './build-agent-site.mjs';
 const dist = new URL('./dist/', import.meta.url);
 await mkdir(dist, { recursive: true });
 
-for (const file of ['index.html', 'styles.css', 'app.js', 'audit.js', 'worker.js']) {
+for (const file of ['index.html', 'styles.css', 'app.js', 'audit.js', 'evaluation.js', 'worker.js']) {
     await cp(new URL(file, import.meta.url), new URL(file, dist));
 }
 

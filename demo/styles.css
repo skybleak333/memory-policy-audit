@@ -88,6 +88,15 @@ h1 { max-width: 56rem; margin: 0; font-size: clamp(2.6rem, 6vw, 5rem); line-heig
 .fact { margin: 0.45rem 0 0; line-height: 1.45; }
 .reason { margin: 0.28rem 0 0; color: var(--muted); font-size: 0.88rem; line-height: 1.4; }
 
+.evaluation { margin-top: 1rem; }
+.evaluation h2 { margin: 0; font-size: 1.15rem; }
+.evaluation h3 { margin: 0; font-size: 1rem; }
+.evaluation time { white-space: nowrap; }
+.evaluation .runtime:empty { margin: 0; min-height: 0; }
+.evaluation .decisions:empty { margin: 0; }
+.evaluation .decision details { margin-top: 0.5rem; }
+.evaluation .decision pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+
 .query-panel { margin-top: 1.05rem; border: 1px solid var(--line); border-radius: 0.6rem; padding: 0.85rem 1rem; color: var(--muted); }
 .query-panel summary { cursor: pointer; color: #e4ede5; font-weight: 650; }
 .query-panel pre { max-width: 100%; overflow-x: auto; margin-bottom: 0.15rem; font-size: 0.85rem; }

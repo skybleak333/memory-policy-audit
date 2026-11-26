@@ -220,6 +220,19 @@ try {
     await page.getByLabel('Comparison cutoff').fill('');
     await comparison.waitFor({ state: 'hidden' });
     console.log('The publication comparison shows both citations and exports the two decisions.');
+
+    await page.getByRole('link', { name: 'Run the example evaluation' }).click();
+    assert.equal(new URL(page.url()).hash, '#evaluation');
+    await page.getByRole('button', { name: 'Run the dataset' }).click();
+    await page.getByText('7 passed, 0 failed.', { exact: true }).waitFor();
+    const results = page.locator('#evaluation-results > li');
+    assert.equal(await results.count(), 7);
+    const conflict = results.filter({ has: page.getByRole('heading', { name: 'Refuse conflicting revisions' }) });
+    assert.match(await conflict.innerText(), /No policy sent to the agent/);
+    const correction = results.filter({ has: page.getByRole('heading', { name: 'Apply a backdated correction' }) });
+    assert.match(await correction.innerText(), /14-day refund window[\s\S]*annual\/v3/);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390);
+    console.log('The browser evaluates all seven cases and shows the approved citations.');
 } finally {
     await browser?.close();
     for (const instance of [policy, caller]) instance?.server.close();

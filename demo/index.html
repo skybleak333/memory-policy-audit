@@ -20,6 +20,7 @@
         <section class="intro">
             <h1>Which policy was in effect?</h1>
             <p>A customer asks how long they have to request a refund. Choose when the policy needed to apply and which publications the agent could use.</p>
+            <p><a href="#evaluation">Run the example evaluation</a></p>
         </section>
 
         <fieldset class="date-picker">
@@ -81,6 +82,14 @@
                 <ol id="decisions" class="decisions"></ol>
             </section>
         </div>
+
+        <section id="evaluation" class="context evaluation" aria-labelledby="evaluation-title">
+            <h2 id="evaluation-title">Evaluate policy decisions</h2>
+            <p class="fact">Run the same cases as the CLI and check which text and citations Relate would send to the agent.</p>
+            <button id="run-evaluation" class="download-decision" type="button">Run the dataset</button>
+            <p id="evaluation-status" class="runtime" role="status"></p>
+            <ul id="evaluation-results" class="decisions"></ul>
+        </section>
 
         <details id="query-panel" class="query-panel" hidden>
             <summary>Show the Cypher queries</summary>
