@@ -155,10 +155,10 @@
             "dist": {
                 "type": "path",
                 "url": "..",
-                "reference": "8ce338a38eb497d96864b24d085396ec458bbf4f"
+                "reference": "4b424e55cfe576821b8d054b07cb9ff7d4a53998"
             },
             "require": {
-                "fedoseev/hindsight-php": "^0.15 || ^0.16",
+                "fedoseev/hindsight-php": "^0.15 || ^0.16 || ^0.17",
                 "php": "^8.2"
             },
             "type": "library",

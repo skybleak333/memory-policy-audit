@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "0e20e2008720b8dbe8f9b99581d81e81",
+    "content-hash": "435f3df8a920499e5d1b728df4da6944",
     "packages": [
         {
             "name": "fedoseev/hindsight-php",

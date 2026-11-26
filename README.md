@@ -126,7 +126,7 @@ The formatter uses today's UTC date unless you give it an `asOf` date. Give it `
 Add the same Composer repositories as in the Laravel example. The Symfony formatter was added in hindsight-php 0.16.
 
 ```sh
-composer require fedoseev/memory-policy-audit:^0.8 fedoseev/hindsight-php:^0.16 symfony/ai-agent:^0.15
+composer require fedoseev/memory-policy-audit:^0.8 'fedoseev/hindsight-php:^0.16 || ^0.17' symfony/ai-agent:^0.15
 ```
 
 Pass the formatter to `HindsightMemory` and register it with Symfony AI's `MemoryInputProcessor`. This example replays the policy applicable on November 5 using the revisions published up to that day.

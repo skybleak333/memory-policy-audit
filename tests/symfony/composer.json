@@ -12,7 +12,7 @@
         {"type": "git", "url": "https://github.com/skybleak333/hindsight-php.git"}
     ],
     "require-dev": {
-        "fedoseev/hindsight-php": "^0.16",
+        "fedoseev/hindsight-php": "^0.16 || ^0.17",
         "fedoseev/memory-policy-audit": "dev-main",
         "phpunit/phpunit": "^11.5 || ^12.0",
         "symfony/ai-agent": "^0.15"
